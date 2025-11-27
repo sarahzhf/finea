@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Core brand colors */
+    --background: #0F2B52;
+    --foreground: #F5D657;
+
+    --card: #122D56;
+    --card-foreground: #F5D657;
+
+    --popover: #122D56;
+    --popover-foreground: #F5D657;
+
+    --primary: #F5D657;
+    --primary-foreground: #0F2B52;
+
+    --secondary: #0F2B52;
+    --secondary-foreground: #F5D657;
+
+    --accent: #122D56;
+    --accent-foreground: #F5D657;
+
+    --muted: #0F2B52;
+    --muted-foreground: #C8B24A;
+
+    --destructive: #B00020;
+    --destructive-foreground: #FFFFFF;
+
+    --border: #F5D657;
+    --input: #122D56;
+    --ring: #F5D657;
+
+    /* Chart palette */
+    --chart-1: #F5D657;
+    --chart-2: #7EA8FF;
+    --chart-3: #4A6FA5;
+    --chart-4: #EACB5F;
+    --chart-5: #D4A017;
+
+    --radius: 0.5rem;
+  }
+
+  /* DARK MODE */
+  .dark {
+    --background: #071A33;
+    --foreground: #F5D657;
+
+    --card: #0D2244;
+    --card-foreground: #F5D657;
+
+    --popover: #0D2244;
+    --popover-foreground: #F5D657;
+
+    --primary: #F5D657;
+    --primary-foreground: #071A33;
+
+    --secondary: #122D56;
+    --secondary-foreground: #F5D657;
+
+    --accent: #0D2244;
+    --accent-foreground: #F5D657;
+
+    --muted: #122D56;
+    --muted-foreground: #C8B24A;
+
+    --destructive: #9A001A;
+    --destructive-foreground: #FFFFFF;
+
+    --border: #F5D657;
+    --input: #122D56;
+    --ring: #F5D657;
+
+    --chart-1: #F5D657;
+    --chart-2: #6F8EDB;
+    --chart-3: #3A5A87;
+    --chart-4: #C6AC4E;
+    --chart-5: #A57F13;
+  }
+}
+
+/* Global body styling */
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, sans-serif;
+}
+
+/* Utility for smooth UI */
+* {
+  @apply transition-colors duration-200;
+}
