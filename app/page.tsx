@@ -38,6 +38,14 @@ export default function HomePage() {
         <div className="absolute -top-16 -left-20 w-72 h-72 bg-[#000000]/20 blur-3xl rounded-full pointer-events-none"></div>
         <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#000000]/15 blur-3xl rounded-full pointer-events-none"></div>
 
+        {/* Hamburger Menu Button */}
+        <button
+          onClick={() => setMenuOpen(true)}
+          className="absolute top-4 left-4 z-50 flex flex-col gap-[3px]"
+        >
+          <span className="w-6 h-[3px] bg-[#F5D657] rounded-full"></span>
+          <span className="w-6 h-[3px] bg-[#F5D657] rounded-full"></span>
+        </button>
         {/* FINÉA Title */}
         <h1 className="text-3xl font-bold text-[#F5D657]">FINÉA</h1>
 
