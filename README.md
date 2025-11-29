@@ -1,63 +1,55 @@
-# 🌙 **Finéa — AI-powered Personal Finance Assistant**
+# 🌙 Finéa — AI-powered Personal Finance Assistant
 
-Finéa est une application Next.js moderne offrant une expérience fluide et immersive pour gérer son budget.
-Elle combine UI mobile-first, visualisations, 3D, et un coach financier animé basé sur l'IA.
+Finéa est une application Next.js moderne et immersive permettant de gérer son budget grâce à :
+- une carte 3D
+- un coach financier basé sur l’IA
+- un design mobile-first
+- des visualisations avancées
 
-# 🚀 **Features**
-### 🧠 **Coach Financier (IA)**
+--------------------------------------------------------
+🚀 FEATURES
+--------------------------------------------------------
 
-* Chat intelligent basé sur OpenAI
-* Conseils personnalisés
-* Mascotte animée
+🧠 Coach Financier (IA)
+- Chat intelligent (OpenAI)
+- Mascotte animée
+- Conseils personnalisés
 
-### 💳 **Carte 3D Interactive**
+💳 Carte 3D Interactive
+- React Three Fiber
+- Flip + parallax
+- Ombres réalistes
 
-* Carte bancaire en 3D (React Three Fiber)
-* Flip 180° + parallax basé sur la souris
-* Ombres réalistes et texture haute qualité
+📊 Gestion Budgétaire
+- Budget
+- Dépenses
+- Épargne
+- Achats inutiles
+- Missions
+- Quiz
 
-### 📊 **Gestion Budgétaire Complète**
+🔍 OCR & Scan
+- Scan tickets / factures
 
-* Budget
-* Dépenses
-* Épargne
-* Dépenses inutiles
-* Missions (gamification)
-* Score financier
+📱 Design Mobile First
+- Bottom bar style Revolut
+- Animations fluides
+- TailwindCSS + Radix UI
 
-### 🧾 **OCR & Scan**
+--------------------------------------------------------
+📁 PROJECT STRUCTURE
+--------------------------------------------------------
 
-* Section “Scan”
-* Scan des tickets & factures
-
-### 🧮 **Modules Thématiques**
-
-* Comptes
-* Crédit
-* Quiz
-* Profil
-* Réglages
-
-### 📱 **Design Mobile First**
-
-* Bottom bar style Revolut
-* Animations fluides
-* Components Radix UI + TailwindCSS
-* UI cohérente et responsive
-
----
-
-# 📁 **Project Structure**
-
-```
 finea/
 ├── app/
 │   ├── layout.tsx
-│   ├── page.tsx                    # Home
-│   ├── api/chat/route.tsx          # AI Chat API
+│   ├── page.tsx                            # Home
+│   ├── api/chat/route.ts                   # OpenAI API
 │   │
-│   ├── budget/page.tsx             # Budget + 3D card
-│   ├── coach/page.tsx              # Coach IA
+│   ├── budget/page.tsx                     # Budget page
+│   ├── budget/statistique/page.tsx         # Stats analytics
+│   │
+│   ├── coach/page.tsx
 │   ├── comptes/page.tsx
 │   ├── credit/page.tsx
 │   ├── dep/page.tsx
@@ -73,144 +65,81 @@ finea/
 │       └── searchbar/page.tsx
 │
 ├── components/
-│   ├── card3d.tsx                  # 3D Card (R3F)
+│   ├── card3d.tsx
 │   ├── cardmesh.tsx
-│   ├── coach_chat.tsx              # Chat UI
-│   ├── fineamascotte.tsx           # Mascotte animations
-│   ├── module_card.tsx             # Feature cards
-│   ├── navbar.tsx                  # Top nav
-│   └── sidebar-menu.tsx            # Bottom nav
+│   ├── fineamascotte.tsx
+│   ├── coach_chat.tsx
+│   ├── module_card.tsx
+│   ├── sidebar-menu.tsx
+│   └── navbar.tsx
 │
 ├── public/
 │   ├── icons/
 │   └── textures/
 │
-├── styles/
 ├── hooks/
 ├── lib/
 ├── types/
 │
-├── next.config.mjs
 ├── tailwind.config.ts
+├── next.config.mjs
 ├── tsconfig.json
 ├── package.json
 └── README.md
-```
 
----
+--------------------------------------------------------
+🛠 INSTALLATION
+--------------------------------------------------------
 
-# 🔧 **Tech Stack**
+1. Cloner le projet :
+  git clone https://github.com/sarahzhf/finea.git
+  cd finea
 
-### **Frontend**
+2. Installer les dépendances :
+  npm install
 
-* **Next.js 15**
-* **React 18**
-* **TypeScript**
-* **TailwindCSS**
-* **Radix UI**
-* **Framer Motion**
+3. Ajouter la clé OpenAI :
+  créer un fichier .env.local
+  OPENAI_API_KEY=sk-xxxx
 
-### **3D**
+4. Lancer le projet :
+  npm run dev
 
-* **React Three Fiber**
-* **@react-three/drei**
-* **three.js**
+→ http://localhost:3000
 
-### **AI / Backend**
+--------------------------------------------------------
+📱 TESTER SUR UN TÉLÉPHONE (MÊME WIFI)
+--------------------------------------------------------
 
-* **OpenAI API (chat)**
-* **Next.js Server Actions / Route Handlers**
+Lancer Next en exposant le réseau :
+  npm run dev -- --hostname 0.0.0.0
 
-### **Dev Tools**
+Trouver l’IP locale du Mac :
+  ipconfig getifaddr en0
 
-* **GitHub Codespaces**
-* **pnpm / npm**
-* **ESLint / Prettier**
+Puis ouvrir depuis le téléphone :
+  http://IP-LOCALE:3000
 
----
+Exemple :
+  http://192.168.1.34:3000
 
-# 🛠️ Installation & Setup
+--------------------------------------------------------
+📦 VERSIONS REQUISES (DÉJÀ CONFIGURÉES)
+--------------------------------------------------------
 
-## **1. Cloner le projet**
+React / Next :
+  npm install next@15.1.7 react@18.3.1 react-dom@18.3.1
 
-```bash
-git clone https://github.com/sarahzhf/finea.git
-cd finea
-```
+3D (R3F stable) :
+  npm install @react-three/fiber@8.15.12 @react-three/drei@9.88.13 three@0.160.0
 
-## **2. Installer les dépendances**
+Tailwind :
+  npm install tailwindcss@3.4.17 postcss@8.4.31 autoprefixer@10.4.20
 
-```bash
-npm install
-```
+--------------------------------------------------------
+📤 GIT COMMANDS
+--------------------------------------------------------
 
-Si tu utilises Codespaces, Node & npm sont déjà installés.
-
----
-
-# ⚙️ **Environment Variables (.env.local)**
-
-Créer un fichier :
-
-```
-OPENAI_API_KEY=sk-xxxx
-```
-
----
-
-# ▶️ Lancer le projet
-
-```bash
-npm run dev
-```
-
-Le projet démarre sur :
-
-```
-http://localhost:3000
-```
-
----
-
-# 📦 **Important Notes**
-
-### ✔️ Nécessaire pour faire fonctionner la 3D (R3F)
-
-```
-npm install @react-three/fiber@8.15.12 @react-three/drei@9.88.13 three@0.160.0
-```
-
-### ✔️ Tailwind + PostCSS (versions compatibles)
-
-```
-npm install tailwindcss@3.4.17 postcss@8.4.31 autoprefixer@10.4.20
-```
-
-### ✔️ React / Next version matching
-
-```
-npm install next@15.1.7 react@18.3.1 react-dom@18.3.1
-```
-
----
-
-# 📜 Scripts npm
-
-```json
-{
-  "build": "next build",
-  "dev": "next dev",
-  "lint": "next lint",
-  "start": "next start"
-}
-```
-
----
-
-# ✔️ **Status**
-
-* Frontend **100% fonctionnel**
-* Budget + Carte 3D **OK**
-* Mascotte + Chat IA **OK**
-* Pages thématiques **OK**
-* Zéro erreur bloquante dans TypeScript
+  git add .
+  git commit -m "update"
+  git push
