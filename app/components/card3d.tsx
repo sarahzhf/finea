@@ -81,7 +81,11 @@ function CardMesh() {
 export default function Card3D() {
   return (
     <div className="w-full h-[200px]">
-      <Canvas shadows camera={{ position: [0, 0, 5], fov: 40 }}>
+      <Canvas
+        shadows
+        camera={{ position: [0, 0, 5], fov: 40 }}
+        gl={{ failIfMajorPerformanceCaveat: false }}
+      >
         <ambientLight intensity={1.2} />
         <directionalLight
           position={[3, 3, 5]}

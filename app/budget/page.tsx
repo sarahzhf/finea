@@ -56,7 +56,7 @@ export default function BudgetPage() {
         <div className="flex justify-center gap-10 mt-6 mb-8">
 
           <button
-            onClick={() => setActiveTab("stats")}
+            onClick={() => { window.location.href = "/budget/statistique" }}
             className="flex flex-col items-center"
           >
             <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">

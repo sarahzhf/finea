@@ -6,6 +6,7 @@ import Card3D from "@/app/components/card3d"
 export default function StatisticsPage() {
   const [filter, setFilter] = useState<"rev" | "dep" | "inut" | "all">("all")
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
+  const [isSheetOpen, setSheetOpen] = useState(false)
   const months = ["Oct", "Nov", "Déc", "Jan", "Fév", "Mar"]
 
   // Sample dynamic data for each month
@@ -46,14 +47,15 @@ export default function StatisticsPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#020b18] flex justify-center items-start py-8 px-3">
+    <div className="flex justify-center items-center w-full min-h-screen bg-[#0A1D37]">
+      <div className="w-[390px] min-h-[844px] bg-[#020b18] rounded-[40px] shadow-xl overflow-y-auto relative p-6">
       <style>{`
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin-slow { animation: spin-slow 25s linear infinite; }
       `}</style>
 
       {/* PHONE FRAME */}
-      <div className="w-[390px] min-h-[780px] bg-[#020b18] rounded-[40px] shadow-[0_0_40px_rgba(0,0,0,0.5)] p-6 overflow-visible">
+      <div className="w-full min-h-[780px] bg-[#020b18] rounded-[40px] p-6 overflow-visible">
 
         {/* HEADER */}
         <div className="flex justify-between items-center mb-6">
@@ -167,7 +169,10 @@ export default function StatisticsPage() {
 
           {/* REVENUS */}
           <button
-            onClick={() => setFilter(filter === "rev" ? "all" : "rev")}
+            onClick={() => {
+              setFilter(filter === "rev" ? "all" : "rev");
+              setSheetOpen(true);
+            }}
             className="w-24 h-32 rounded-full bg-white/10 border border-white/20 flex flex-col items-center justify-center shadow-md relative overflow-hidden transition-all duration-300"
           >
             <div
@@ -180,12 +185,14 @@ export default function StatisticsPage() {
               {filter === "rev" ? "ON" : "OFF"}
             </p>
             <p className="text-white text-xs mt-8">Revenus</p>
-            <p className="text-white/60 text-[10px] mt-1">{filter === "rev" ? "ON" : "OFF"}</p>
           </button>
 
           {/* DEPENSES */}
           <button
-            onClick={() => setFilter(filter === "dep" ? "all" : "dep")}
+            onClick={() => {
+              setFilter(filter === "dep" ? "all" : "dep");
+              setSheetOpen(true);
+            }}
             className="w-24 h-32 rounded-full bg-white/10 border border-white/20 flex flex-col items-center justify-center shadow-md relative overflow-hidden transition-all duration-300"
           >
             <div
@@ -198,12 +205,14 @@ export default function StatisticsPage() {
               {filter === "dep" ? "ON" : "OFF"}
             </p>
             <p className="text-white text-xs mt-8">Dépenses</p>
-            <p className="text-white/60 text-[10px] mt-1">{filter === "dep" ? "ON" : "OFF"}</p>
           </button>
 
           {/* INUTILES */}
           <button
-            onClick={() => setFilter(filter === "inut" ? "all" : "inut")}
+            onClick={() => {
+              setFilter(filter === "inut" ? "all" : "inut");
+              setSheetOpen(true);
+            }}
             className="w-24 h-32 rounded-full bg-white/10 border border-white/20 flex flex-col items-center justify-center shadow-md relative overflow-hidden transition-all duration-300"
           >
             <div
@@ -216,7 +225,6 @@ export default function StatisticsPage() {
               {filter === "inut" ? "ON" : "OFF"}
             </p>
             <p className="text-white text-xs mt-8">Inutiles</p>
-            <p className="text-white/60 text-[10px] mt-1">{filter === "inut" ? "ON" : "OFF"}</p>
           </button>
 
         </div>
@@ -328,6 +336,32 @@ export default function StatisticsPage() {
           </div>
 
         </div>
+      </div>
+
+      {isSheetOpen && (
+        <div className="fixed bottom-0 left-0 w-full h-[55%] bg-[#0A1D37] border-t border-white/10 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] p-6 z-[9999] transition-all duration-300">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-white font-semibold text-lg">Détails du mois</h2>
+            <button onClick={() => setSheetOpen(false)} className="text-white text-2xl">×</button>
+          </div>
+
+          <div className="w-full flex items-center justify-center mb-6">
+            <div className="text-center">
+              <p className="text-white text-2xl font-bold">{current.value} €</p>
+              <p className="text-white/60 text-sm mt-1">
+                {filter === "rev" && "Total revenus"}
+                {filter === "dep" && "Total dépenses"}
+                {filter === "inut" && "Total achats inutiles"}
+                {filter === "all" && "Vue globale"}
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full h-40 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-white/50">
+            Graphique détaillé (pro)
+          </div>
+        </div>
+      )}
       </div>
     </div>
   )
