@@ -1,10 +1,6 @@
 # 🌙 Finéa — AI-powered Personal Finance Assistant
 
-Finéa est une application Next.js moderne et immersive permettant de gérer son budget grâce à :
-- une carte 3D
-- un coach financier basé sur l’IA
-- un design mobile-first
-- des visualisations avancées
+Finéa est une application Next.js moderne et immersive permettant de gérer son budget grâce à un coach financier basé sur l’IA
 
 --------------------------------------------------------
 🚀 FEATURES
