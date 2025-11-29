@@ -1,11 +1,12 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Html, Float, Text, Billboard, Image } from "@react-three/drei";
+import { OrbitControls, Html, Float, Text, Billboard, Image, useTexture } from "@react-three/drei";
 import React, { Suspense, useEffect, useState, useRef } from "react";
 import * as THREE from "three";
+import { useRouter } from "next/navigation";
 
-type MiniGameId = "budget-run" | "expense-quiz" | "savings-lab";
+type MiniGameId = "swipe-game" | "bill-rush" | "savings-lab";
 
 type MiniGame = {
   id: MiniGameId;
@@ -20,30 +21,30 @@ type Vec3 = { x: number; y: number; z: number };
 
 const MINI_GAMES: MiniGame[] = [
   {
-    id: "budget-run",
-    title: "Budget Run",
-    shortLabel: "Budget",
+    id: "swipe-game",
+    title: "Swipe Game",
+    shortLabel: "Swipe",
     description:
-      "Apprends à équilibrer ton budget en évitant les dépenses inutiles et en gardant ton solde dans le vert.",
-    position: [-3, 1.4, -5],
+      "Swipe les cartes de dépenses à gauche ou à droite pour décider quoi accepter, refuser ou épargner, et vois l'impact sur ton objectif du mois.",
+    position: [-3, 1.4, -4.6],
     accentColor: "#38bdf8",
   },
   {
-    id: "expense-quiz",
-    title: "Quiz Dépenses",
-    shortLabel: "Quiz",
+    id: "bill-rush",
+    title: "Bill Rush",
+    shortLabel: "Rush",
     description:
-      "Réponds à des questions rapides sur les dépenses, les abonnements et les bonnes pratiques financières.",
-    position: [0, 1.4, -5],
-    accentColor: "#facc15",
+      "Cours dans ton mois : récupère tes revenus, choisis quelles factures payer, et décide quand dire oui aux tentations ou investir sur toi.",
+    position: [0, 1.4, -4.6],
+    accentColor: "#f97316",
   },
   {
     id: "savings-lab",
-    title: "Laboratoire d'Épargne",
-    shortLabel: "Épargne",
+    title: "Savings Lab",
+    shortLabel: "Savings Lab",
     description:
-      "Simule différents scénarios d’épargne et découvre comment faire travailler ton argent pour toi.",
-    position: [3, 1.4, -5],
+      "Répartis une somme entre sécurité, projets, long terme et plaisir selon différents scénarios de vie, et vois ce que ça raconte de tes priorités.",
+    position: [3, 1.4, -4.6],
     accentColor: "#22c55e",
   },
 ];
@@ -128,7 +129,6 @@ function Player({
         <Billboard follow={true} lockX={false} lockY={false} lockZ={false}>
           <group>
             <Image
-              // ⚠️ Mets ici les bons chemins :
               // - image normale : "/icons/fineamascotte.png"
               // - image yeux fermés (blink) : "/icons/fineamascotte-blink.png"
               url={isBlinking ? "/icons/fineatalk.png" : "/icons/fineamascotte.png"}
@@ -168,19 +168,25 @@ function Player({
 }
 
 function FloorAndWalls() {
+  const floorTexture = useTexture("/texture/missions/sol.jpg");
+  const wallTexture = useTexture("/texture/missions/mur.jpg");
+
+  // Réglages pour que la texture se répète de façon plus large (moins de pixels visibles)
+  floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+  floorTexture.repeat.set(2, 2);
+
+  wallTexture.wrapS = wallTexture.wrapT = THREE.RepeatWrapping;
+  wallTexture.repeat.set(1, 1);
+
   return (
     <group>
-      {/* Sol */}
-      <mesh
-        rotation-x={-Math.PI / 2}
-        receiveShadow
-        position={[0, 0, 0]}
-      >
+      {/* Sol principal – un peu plus clair que le fond global */}
+      <mesh rotation-x={-Math.PI / 2} receiveShadow position={[0, 0, 0]}>
         <planeGeometry args={[12, 8]} />
         <meshStandardMaterial
-          color="#020617"
-          roughness={0.8}
-          metalness={0.2}
+          map={floorTexture}
+          roughness={0.7}
+          metalness={0.1}
         />
       </mesh>
 
@@ -188,19 +194,57 @@ function FloorAndWalls() {
       <mesh position={[0, 2, -5]} receiveShadow>
         <boxGeometry args={[12, 4, 0.2]} />
         <meshStandardMaterial
-          color="#020617"
-          metalness={0.3}
-          roughness={0.4}
+          map={wallTexture}
+          roughness={0.6}
+          metalness={0.1}
         />
       </mesh>
 
-      {/* léger dégradé lumineux sur le mur */}
-      <mesh position={[0, 2, -4.9]}>
-        <planeGeometry args={[8, 3]} />
-        <meshBasicMaterial
-          color="#0f172a"
-          transparent
-          opacity={0.7}
+
+      {/* Murs latéraux gauche et droite */}
+      <mesh position={[-6, 2, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[8, 4, 0.2]} />
+        <meshStandardMaterial
+          map={wallTexture}
+          roughness={0.6}
+          metalness={0.1}
+        />
+      </mesh>
+      <mesh position={[6, 2, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[8, 4, 0.2]} />
+        <meshStandardMaterial
+          map={wallTexture}
+          roughness={0.6}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Plinthes au pied des murs pour un rendu plus "pièce" */}
+      {/* Plinthe mur du fond */}
+      <mesh position={[0, 0.15, -4.9]} receiveShadow>
+        <boxGeometry args={[12, 0.3, 0.1]} />
+        <meshStandardMaterial
+          color="#111827"
+          roughness={0.35}
+          metalness={0.2}
+        />
+      </mesh>
+
+      {/* Plinthes murs latéraux */}
+      <mesh position={[-5.95, 0.15, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[8, 0.3, 0.1]} />
+        <meshStandardMaterial
+          color="#111827"
+          roughness={0.35}
+          metalness={0.2}
+        />
+      </mesh>
+      <mesh position={[5.95, 0.15, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[8, 0.3, 0.1]} />
+        <meshStandardMaterial
+          color="#111827"
+          roughness={0.35}
+          metalness={0.2}
         />
       </mesh>
     </group>
@@ -210,12 +254,17 @@ function FloorAndWalls() {
 function GamePortal({
   game,
   isNearby,
+  onSelect,
 }: {
   game: MiniGame;
   isNearby: boolean;
+  onSelect: (id: MiniGameId) => void;
 }) {
   return (
-    <group position={game.position}>
+    <group
+      position={game.position}
+      onClick={() => onSelect(game.id)}
+    >
       {/* panneau principal */}
       <mesh castShadow>
         <boxGeometry args={[2.2, 1.4, 0.2]} />
@@ -326,13 +375,14 @@ function Scene3D({
           key={game.id}
           game={game}
           isNearby={distance3D(playerPos, game.position) < 1.7}
+          onSelect={onGameSelect}
         />
       ))}
 
       {/* petit titre lumineux sur le mur */}
       <Float speed={1.2} floatIntensity={0.4} rotationIntensity={0.1}>
         <Text
-          position={[0, 2.4, -4.7]}
+          position={[0, 2.8, -4.7]}
           fontSize={0.5}
           color="#f9fafb"
           anchorX="center"
@@ -354,8 +404,10 @@ function Scene3D({
 }
 
 export default function MissionsPage() {
+  const router = useRouter();
   const [selectedGame, setSelectedGame] = useState<MiniGame | null>(null);
   const [nearestGame, setNearestGame] = useState<MiniGameId | null>(null);
+  const [swipeMode, setSwipeMode] = useState<"demo" | "play">("demo");
 
   const currentGame = selectedGame;
   const hintGame = nearestGame
@@ -454,18 +506,193 @@ export default function MissionsPage() {
               </button>
             </div>
 
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="text-[10px] text-slate-400">
-                Cette zone pourra ouvrir le vrai jeu (quiz, runner, etc.) ou une
-                nouvelle page Next.js.
-              </p>
-              <button
-                className="whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-semibold text-slate-900"
-                style={{ backgroundColor: currentGame.accentColor }}
-              >
-                Jouer (bientôt)
-              </button>
-            </div>
+            {currentGame.id === "swipe-game" ? (
+              <>
+                {/* Guide du Swipe Game */}
+                <div className="mt-3 rounded-2xl bg-black/60 border border-white/10 px-3 py-2 space-y-1.5">
+                  <p className="text-[10px] font-medium text-slate-100">
+                    Comment ça marche ?
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[10px] text-slate-300">
+                    <li>Des cartes de dépenses apparaissent une par une.</li>
+                    <li>Swipe à gauche pour refuser, à droite pour accepter.</li>
+                    <li>Les deux choix ont un impact, aucun n&apos;est parfait.</li>
+                  </ul>
+                </div>
+
+                {/* Boutons Démo / Jouer */}
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSwipeMode("demo");
+                        router.push("/missions/swipe");
+                      }}
+                      className={
+                        "rounded-full px-3 py-1 text-[10px] font-semibold transition " +
+                        (swipeMode === "demo"
+                          ? "bg-white text-slate-900"
+                          : "bg-white/5 text-slate-200 border border-white/10")
+                      }
+                    >
+                      Démo
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSwipeMode("play");
+                        router.push("/missions/swipe");
+                      }}
+                      className={
+                        "rounded-full px-3 py-1 text-[10px] font-semibold transition " +
+                        (swipeMode === "play"
+                          ? "text-slate-900"
+                          : "text-slate-900/80")
+                      }
+                      style={{
+                        backgroundColor:
+                          swipeMode === "play"
+                            ? currentGame.accentColor
+                            : currentGame.accentColor + "CC",
+                      }}
+                    >
+                      Jouer
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-slate-400">
+                    Swipe les cartes comme dans Tinder pour tester tes réflexes financiers.
+                  </p>
+                </div>
+              </>
+            ) : currentGame.id === "bill-rush" ? (
+              <>
+                {/* Guide de Bill Rush */}
+                <div className="mt-3 rounded-2xl bg-black/60 border border-white/10 px-3 py-2 space-y-1.5">
+                  <p className="text-[10px] font-medium text-slate-100">
+                    Comment ça marche ?
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[10px] text-slate-300">
+                    <li>Le mois défile : les cases descendent vers toi sur 3 lignes.</li>
+                    <li>Change de ligne pour attraper tes revenus et gérer les dépenses.</li>
+                    <li>Certains coûts sont essentiels, d&apos;autres sont des tentations ou des investissements.</li>
+                  </ul>
+                </div>
+
+                {/* Boutons Démo / Jouer */}
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSwipeMode("demo");
+                        router.push("/missions/bill_rush");
+                      }}
+                      className={
+                        "rounded-full px-3 py-1 text-[10px] font-semibold transition " +
+                        (swipeMode === "demo"
+                          ? "bg-white text-slate-900"
+                          : "bg-white/5 text-slate-200 border border-white/10")
+                      }
+                    >
+                      Démo
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSwipeMode("play");
+                        router.push("/missions/bill_rush");
+                      }}
+                      className={
+                        "rounded-full px-3 py-1 text-[10px] font-semibold transition " +
+                        (swipeMode === "play"
+                          ? "text-slate-900"
+                          : "text-slate-900/80")
+                      }
+                      style={{
+                        backgroundColor:
+                          swipeMode === "play"
+                            ? currentGame.accentColor
+                            : currentGame.accentColor + "CC",
+                      }}
+                    >
+                      Jouer
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-slate-400">
+                    Déplace‑toi entre les lignes et laisse le mois défiler pour voir comment tu arbitres.
+                  </p>
+                </div>
+              </>
+            ) : currentGame.id === "savings-lab" ? (
+              <>
+                {/* Guide de Savings Lab */}
+                <div className="mt-3 rounded-2xl bg-black/60 border border-white/10 px-3 py-2 space-y-1.5">
+                  <p className="text-[10px] font-medium text-slate-100">
+                    Comment ça marche ?
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[10px] text-slate-300">
+                    <li>On te donne un scénario et une somme à répartir.</li>
+                    <li>Glisse les sliders entre sécurité, projets, long terme et plaisir.</li>
+                    <li>
+                      Valide ta répartition pour voir ce que ça raconte de tes priorités dans ce contexte.
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Boutons Démo / Jouer */}
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSwipeMode("demo");
+                        router.push("/missions/savings_lab");
+                      }}
+                      className={
+                        "rounded-full px-3 py-1 text-[10px] font-semibold transition " +
+                        (swipeMode === "demo"
+                          ? "bg-white text-slate-900"
+                          : "bg-white/5 text-slate-200 border border-white/10")
+                      }
+                    >
+                      Démo
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSwipeMode("play");
+                        router.push("/missions/savings_lab");
+                      }}
+                      className={
+                        "rounded-full px-3 py-1 text-[10px] font-semibold transition " +
+                        (swipeMode === "play"
+                          ? "text-slate-900"
+                          : "text-slate-900/80")
+                      }
+                      style={{
+                        backgroundColor:
+                          swipeMode === "play"
+                            ? currentGame.accentColor
+                            : currentGame.accentColor + "CC",
+                      }}
+                    >
+                      Jouer
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-slate-400">
+                    Expérimente différentes répartitions et observe comment elles changent ton mois et ton futur.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[10px] text-slate-400">
+                  Cette zone pourra ouvrir le vrai mini‑jeu (runner, labo d&apos;épargne, etc.) ou une
+                  nouvelle page Finéa.
+                </p>
+                <button
+                  className="whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-semibold text-slate-900"
+                  style={{ backgroundColor: currentGame.accentColor }}
+                >
+                  Jouer (bientôt)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
