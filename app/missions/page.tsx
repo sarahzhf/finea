@@ -58,8 +58,10 @@ function distance3D(a: Vec3, b: [number, number, number]) {
 
 function Player({
   onMove,
+  virtualDirection,
 }: {
   onMove?: (position: Vec3) => void;
+  virtualDirection?: { x: number; z: number } | null;
 }) {
   const ref = useRef<THREE.Group>(null);
   const keys = useRef<Record<string, boolean>>({});
@@ -97,12 +99,18 @@ function Player({
     const amplitude = 0.08; // hauteur du saut
     mesh.position.y = baseY + Math.sin(t * 3) * amplitude;
 
-    const moveX =
+    const moveXKeyboard =
       (keys.current["KeyD"] || keys.current["ArrowRight"] ? 1 : 0) -
       (keys.current["KeyA"] || keys.current["ArrowLeft"] ? 1 : 0);
-    const moveZ =
+    const moveZKeyboard =
       (keys.current["KeyS"] || keys.current["ArrowDown"] ? 1 : 0) -
       (keys.current["KeyW"] || keys.current["ArrowUp"] ? 1 : 0);
+
+    const moveXJoystick = virtualDirection?.x ?? 0;
+    const moveZJoystick = virtualDirection?.z ?? 0;
+
+    const moveX = moveXKeyboard + moveXJoystick;
+    const moveZ = moveZKeyboard + moveZJoystick;
 
     if (moveX !== 0 || moveZ !== 0) {
       const dir = new THREE.Vector3(moveX, 0, moveZ)
@@ -313,9 +321,11 @@ function GamePortal({
 function Scene3D({
   onGameSelect,
   setNearestGame,
+  virtualDirection,
 }: {
   onGameSelect: (gameId: MiniGameId) => void;
   setNearestGame: React.Dispatch<React.SetStateAction<MiniGameId | null>>;
+  virtualDirection?: { x: number; z: number } | null;
 }) {
   const [playerPos, setPlayerPos] = useState<Vec3>({ x: 0, y: 0.6, z: 0 });
 
@@ -368,7 +378,7 @@ function Scene3D({
 
       <FloorAndWalls />
 
-      <Player onMove={setPlayerPos} />
+      <Player onMove={setPlayerPos} virtualDirection={virtualDirection} />
 
       {MINI_GAMES.map((game) => (
         <GamePortal
@@ -408,11 +418,62 @@ export default function MissionsPage() {
   const [selectedGame, setSelectedGame] = useState<MiniGame | null>(null);
   const [nearestGame, setNearestGame] = useState<MiniGameId | null>(null);
   const [swipeMode, setSwipeMode] = useState<"demo" | "play">("demo");
+  const [virtualDirection, setVirtualDirection] = useState<{ x: number; z: number } | null>(null);
+  const [joystickVector, setJoystickVector] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const currentGame = selectedGame;
   const hintGame = nearestGame
     ? MINI_GAMES.find((g) => g.id === nearestGame) ?? null
     : null;
+
+  // Joystick handlers and ref
+  const joystickRef = React.useRef<HTMLDivElement | null>(null);
+  const [joystickActive, setJoystickActive] = useState(false);
+
+  const updateJoystickFromEvent = (clientX: number, clientY: number) => {
+    if (!joystickRef.current) return;
+    const rect = joystickRef.current.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const radius = rect.width / 2;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const clampedDist = Math.min(dist, radius);
+    const nx = clampedDist === 0 ? 0 : (dx / dist) * (clampedDist / radius);
+    const ny = clampedDist === 0 ? 0 : (dy / dist) * (clampedDist / radius);
+
+    // Pour le joueur : x = gauche/droite, z = avant/arrière (dy vers le haut = avancer vers le mur)
+    setJoystickVector({ x: nx, y: ny });
+    setVirtualDirection({ x: nx, z: ny });
+  };
+
+  const handleJoystickStart = (e: React.TouchEvent | React.MouseEvent) => {
+    setJoystickActive(true);
+    if ("touches" in e) {
+      const touch = e.touches[0];
+      updateJoystickFromEvent(touch.clientX, touch.clientY);
+    } else {
+      updateJoystickFromEvent(e.clientX, e.clientY);
+    }
+  };
+
+  const handleJoystickMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!joystickActive) return;
+    if ("touches" in e) {
+      const touch = e.touches[0];
+      updateJoystickFromEvent(touch.clientX, touch.clientY);
+    } else {
+      updateJoystickFromEvent(e.clientX, e.clientY);
+    }
+  };
+
+  const handleJoystickEnd = () => {
+    setJoystickActive(false);
+    setJoystickVector({ x: 0, y: 0 });
+    setVirtualDirection(null);
+  };
 
   return (
     <div className="w-full min-h-screen flex items-center justify-center bg-gradient-to-b from-[#020617] via-[#020617] to-[#0b1120] text-slate-50 px-3 py-4">
@@ -477,6 +538,7 @@ export default function MissionsPage() {
                   setSelectedGame(game);
                 }}
                 setNearestGame={setNearestGame}
+                virtualDirection={virtualDirection}
               />
             </Suspense>
           </Canvas>
@@ -695,6 +757,32 @@ export default function MissionsPage() {
             )}
           </div>
         )}
+        {/* Joystick virtuel (surtout utile sur mobile) */}
+        <div className="absolute bottom-16 left-6 z-30 md:hidden">
+          <div
+            ref={joystickRef}
+            className="relative h-20 w-20 rounded-full border border-white/20 bg-black/40 backdrop-blur-md touch-none"
+            onMouseDown={handleJoystickStart}
+            onMouseMove={handleJoystickMove}
+            onMouseUp={handleJoystickEnd}
+            onMouseLeave={handleJoystickEnd}
+            onTouchStart={handleJoystickStart}
+            onTouchMove={handleJoystickMove}
+            onTouchEnd={handleJoystickEnd}
+          >
+            {/* cercle de fond */}
+            <div className="absolute inset-2 rounded-full border border-white/10 bg-black/40" />
+            {/* stick */}
+            <div
+              className="absolute h-10 w-10 rounded-full bg-white/80 shadow-[0_0_20px_rgba(255,255,255,0.4)]"
+              style={{
+                left: `calc(50% + ${joystickVector.x * 24}px - 20px)`,
+                top: `calc(50% + ${joystickVector.y * 24}px - 20px)`,
+                transition: joystickActive ? "none" : "transform 0.1s ease-out",
+              }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
