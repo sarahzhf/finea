@@ -69,7 +69,7 @@ export default function FineaMascotte({ onOpen, isNegative = false }: { onOpen: 
 
   return (
     <motion.div
-      className="fixed top-12 right-4 z-[999] w-[80px] h-[80px] flex items-center justify-center"
+      className="fixed top-12 right-4 z-[999] w-[60px] h-[60px] flex items-center justify-center"
     >
       <motion.img
         src={expression[mood as Mood]}

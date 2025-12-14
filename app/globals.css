@@ -92,3 +92,11 @@ body {
 * {
   @apply transition-colors duration-200;
 }
+
+.perspective {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
