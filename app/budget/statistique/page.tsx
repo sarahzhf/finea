@@ -1,367 +1,277 @@
 "use client"
 
-import { useState } from "react"
-import Card3D from "@/app/components/card3d"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/components/AuthProvider"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { ArrowLeft } from "lucide-react"
+import { useRouter } from "next/navigation"
+
+interface MonthlyStats {
+  monthLabel: string; // e.g. "Jan"
+  fullLabel: string; // e.g. "Janvier 2025"
+  value: number; // Net gain (Income - Expense)
+  rev: number;
+  dep: number;
+  inut: number;
+}
 
 export default function StatisticsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [filter, setFilter] = useState<"rev" | "dep" | "inut" | "all">("all")
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number | null>(null)
   const [isSheetOpen, setSheetOpen] = useState(false)
-  const months = ["Oct", "Nov", "Déc", "Jan", "Fév", "Mar"]
+  
+  const [statsData, setStatsData] = useState<MonthlyStats[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample dynamic data for each month
-  const monthData = {
-    Oct: { value: 980, rev: 400, dep: 300, inut: 280 },
-    Nov: { value: 1200, rev: 500, dep: 450, inut: 250 },
-    Déc: { value: 1720, rev: 900, dep: 600, inut: 220 },
-    Jan: { value: 1480, rev: 850, dep: 500, inut: 130 },
-    Fév: { value: 1890, rev: 1000, dep: 700, inut: 190 },
-    Mar: { value: 1600, rev: 920, dep: 520, inut: 160 },
-  };
+  // Useless Keywords
+  const USELESS_KEYWORDS = ["mcdo", "starbucks", "uber", "netflix", "spotify", "restaurant", "bar", "cinema", "kfc", "burger", "deliveroo", "amazon"];
+  const USELESS_CATEGORIES = ["Restaurant", "Loisirs"];
 
-  // If no month selected → show total of all months
-  const totalValue = Object.values(monthData).reduce((sum, m) => sum + m.value, 0);
+  useEffect(() => {
+    const fetchAndProcess = async () => {
+      if (!user) return;
+      try {
+        const querySnapshot = await getDocs(collection(db, "users", user.uid, "operations"));
+        
+        const operations: any[] = [];
+        querySnapshot.forEach((doc) => {
+          operations.push(doc.data());
+        });
 
-  const current =
-    selectedMonth !== null
-      ? monthData[months[selectedMonth] as keyof typeof monthData]
-      : {
-          value: totalValue,
-          rev: totalValue,
-          dep: totalValue,
-          inut: totalValue,
-        };
+        // Group by Month (YYYY-MM)
+        const groups: Record<string, { rev: number, dep: number, inut: number, date: Date }> = {};
 
-  function generateFinanceCurve(current: any) {
-    if (!current) return "M0 25 C 20 25, 40 25, 60 25 S 80 25, 100 25";
+        operations.forEach(op => {
+           // Parse Date
+           const date = op.date?.toDate ? op.date.toDate() : new Date(op.date);
+           const key = `${date.getFullYear()}-${date.getMonth()}`;
+           
+           if (!groups[key]) {
+              groups[key] = { rev: 0, dep: 0, inut: 0, date };
+           }
 
-    const base = 30;
-    const amplitude = Math.min(12, Math.max(4, current.value / 200));
-    const p1 = base - amplitude * 0.9;
-    const p2 = base + amplitude * 0.5;
-    const p3 = base - amplitude * 1.2;
-    const p4 = base + amplitude * 0.7;
-    const p5 = base - amplitude * 0.4;
+           const amount = Number(op.amount);
+           const label = op.label?.toLowerCase() || "";
+           const cat = op.category || "";
 
-    return `M0 ${base} C 20 ${p1}, 40 ${p2}, 60 ${p3} S 80 ${p4}, 100 ${p5}`;
+           if (amount > 0) {
+              groups[key].rev += amount;
+           } else {
+              const absAmount = Math.abs(amount);
+              groups[key].dep += absAmount;
+
+              // Check "Useless"
+              const isUseless = USELESS_CATEGORIES.includes(cat) || USELESS_KEYWORDS.some(k => label.includes(k));
+              if (isUseless) {
+                 groups[key].inut += absAmount;
+              }
+           }
+        });
+
+        // Convert to Array & Sort by Date
+        const sortedKeys = Object.keys(groups).sort();
+        // Limit to last 6 months for UI
+        const recentKeys = sortedKeys.slice(-6);
+
+        const processed: MonthlyStats[] = recentKeys.map(key => {
+           const g = groups[key];
+           const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+           const fullMonthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+           
+           return {
+              monthLabel: monthNames[g.date.getMonth()],
+              fullLabel: `${fullMonthNames[g.date.getMonth()]} ${g.date.getFullYear()}`,
+              value: g.rev - g.dep, // Net
+              rev: g.rev,
+              dep: g.dep,
+              inut: g.inut
+           };
+        });
+
+        setStatsData(processed);
+        if (processed.length > 0) setSelectedMonthIndex(processed.length - 1); // Select latest by default
+
+      } catch (err) {
+        console.error("Error stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAndProcess();
+  }, [user]);
+
+  // Current Selection
+  const current = selectedMonthIndex !== null && statsData[selectedMonthIndex] 
+    ? statsData[selectedMonthIndex]
+    : { value: 0, rev: 0, dep: 0, inut: 0, fullLabel: "Aucune donnée" };
+
+
+  function generateFinanceCurve(curr: any) {
+    // Generate a simple curve based on net value 
+    // Normalized for SVG 0-100 width, 0-40 height
+    const base = 20; // Center Y
+    // Map value e.g. -500 to +500 -> amplitude
+    const normalized = Math.max(-15, Math.min(15, curr.value / 100)); // Scale factor
+    
+    // Create a smooth cubic bezier
+    // Start at left center (0, 20)
+    // End at right center (100, 20)
+    // Control points affected by value
+    return `M0 20 C 30 ${20 - normalized}, 70 ${20 + normalized}, 100 ${20 - (normalized/2)}`;
   }
+
+  // Calculate percentages for Donut
+  const totalVolume = current.rev + current.dep; // Total flow magnitude? No, conventionally Donut is Expense breakdown or In/Out. 
+  // User mockup shows mixed Rev/Dep/Inut in one donut. 
+  // Let's use: Total = Rev + Dep. Segments relative to this sum.
+  const donutTotal = current.rev + current.dep; 
 
   return (
     <div className="flex justify-center items-center w-full min-h-screen bg-[#0A1D37]">
-      <div className="w-[390px] min-h-[844px] bg-[#020b18] rounded-[40px] shadow-xl overflow-y-auto relative p-6">
+      <div className="w-[390px] min-h-[850px] bg-[#020b18] rounded-[40px] shadow-xl overflow-y-auto relative p-6 pb-20">
       <style>{`
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin-slow { animation: spin-slow 25s linear infinite; }
       `}</style>
-
-      {/* PHONE FRAME */}
-      <div className="w-full min-h-[780px] bg-[#020b18] rounded-[40px] p-6 overflow-visible">
-
+        
         {/* HEADER */}
-        <div className="flex justify-between items-center mb-6">
-          <button onClick={() => window.history.back()} className="text-white text-3xl">‹</button>
+        <div className="flex justify-between items-center mb-6 pt-4">
+          <button onClick={() => router.back()} className="p-2 bg-white/5 rounded-full text-white hover:bg-white/10">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
           <h1 className="text-xl font-bold text-white">Statistiques</h1>
           <div className="w-8 h-8"></div>
         </div>
 
-        {/* DONUT – FULL PREMIUM SEGMENTED */}
-        <div className="w-full flex items-center justify-center relative mb-10">
-          <svg
-            viewBox="0 0 36 36"
-            className="w-48 h-48 animate-spin-slow"
-            preserveAspectRatio="xMidYMid meet"
-            style={{ overflow: "visible" }}
-          >
-
-              {/* BASE CIRCLE (background thickness) */}
-              <circle
-                cx="18"
-                cy="18"
-                r="16"
-                stroke="#ffffff15"
-                strokeWidth="5.5"
-                fill="none"
-              />
-
-              {/* ——— GLOBAL VIEW (3 COLORS MIXED) ——— */}
-              {filter === "all" && (
-                <>
-                  {[
-                    { color: "#5E90C8", val: current ? current.rev : 400 },
-                    { color: "#D1B46E", val: current ? current.dep : 300 },
-                    { color: "#C98484", val: current ? current.inut : 200 },
-                  ]
-                  .map((seg, i, arr) => {
-                    const total = arr.reduce((s, x) => s + x.val, 0);
-                    const start = arr.slice(0, i).reduce((s, x) => s + x.val, 0) / total * 100;
-                    const length = (seg.val / total) * 100;
-                    return (
-                      <circle
-                        key={i}
-                        cx="18"
-                        cy="18"
-                        r="16"
-                        stroke={seg.color}
-                        strokeWidth="5.5"
-                        fill="none"
-                        strokeDasharray={`${length} ${100 - length}`}
-                        strokeDashoffset={-start}
-                        strokeLinecap="round"
-                        style={{ filter: "drop-shadow(0px 0px 6px currentColor)" }}
-                      />
-                    );
-                  })}
-                </>
-              )}
-
-              {/* ——— SINGLE VIEW REVENUS ——— */}
-              {filter === "rev" && (
-                <circle
-                  cx="18" cy="18" r="16"
-                  stroke="#5E90C8"
-                  strokeWidth="6"
-                  fill="none"
-                  strokeDasharray="100 0"
-                  strokeLinecap="round"
-                  style={{ filter: "drop-shadow(0px 0px 10px currentColor)" }}
-                />
-              )}
-
-              {/* ——— SINGLE VIEW DÉPENSES ——— */}
-              {filter === "dep" && (
-                <circle
-                  cx="18" cy="18" r="16"
-                  stroke="#D1B46E"
-                  strokeWidth="6"
-                  fill="none"
-                  strokeDasharray="100 0"
-                  strokeLinecap="round"
-                  style={{ filter: "drop-shadow(0px 0px 10px currentColor)" }}
-                />
-              )}
-
-              {/* ——— SINGLE VIEW INUTILES ——— */}
-              {filter === "inut" && (
-                <circle
-                  cx="18" cy="18" r="16"
-                  stroke="#C98484"
-                  strokeWidth="6"
-                  fill="none"
-                  strokeDasharray="100 0"
-                  strokeLinecap="round"
-                  style={{ filter: "drop-shadow(0px 0px 10px currentColor)" }}
-                />
-              )}
-            </svg>
-          {/* CENTER LABEL */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-white text-xl font-bold">
-              {current.value ? `${current.value} €` : `${totalValue} €`}
-            </p>
-            <p className="text-white/60 text-xs">Gain mensuel</p>
-          </div>
-        </div>
-
-        <h2 className="text-white text-lg font-semibold mb-2">Analyse du mois</h2>
-
-        {/* NEW OVAL TOGGLES WITH INNER CIRCLE */}
-        <div className="flex gap-4 justify-center mb-8">
-
-          {/* REVENUS */}
-          <button
-            onClick={() => {
-              setFilter(filter === "rev" ? "all" : "rev");
-              setSheetOpen(true);
-            }}
-            className="w-24 h-32 rounded-full bg-white/10 border border-white/20 flex flex-col items-center justify-center shadow-md relative overflow-hidden transition-all duration-300"
-          >
-            <div
-              className={`absolute top-3 w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300
-              ${filter === "rev" ? "translate-y-3 bg-[#5E90C8]" : "translate-y-0 bg-white"}`}
-            >
-              <img src="/icons/revenue.png" className="w-6 h-6" />
+        {loading ? (
+           <div className="text-white text-center mt-20">Chargement...</div>
+        ) : (
+          <>
+            {/* MONTH SELECTOR */}
+            <div className="w-full overflow-x-auto no-scrollbar mb-8">
+              <div className="flex justify-center gap-4 min-w-max px-4">
+                {statsData.map((m, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedMonthIndex(i)}
+                    className={`px-4 py-2 rounded-xl border border-white/10 transition-all font-medium text-sm
+                      ${selectedMonthIndex === i ? "bg-white text-[#0A1D37] shadow-[0_0_15px_rgba(255,255,255,0.4)]" : "bg-white/5 text-white/60"}`}
+                  >
+                    {m.monthLabel}
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="text-white text-[10px] mb-1">
-              {filter === "rev" ? "ON" : "OFF"}
-            </p>
-            <p className="text-white text-xs mt-8">Revenus</p>
-          </button>
 
-          {/* DEPENSES */}
-          <button
-            onClick={() => {
-              setFilter(filter === "dep" ? "all" : "dep");
-              setSheetOpen(true);
-            }}
-            className="w-24 h-32 rounded-full bg-white/10 border border-white/20 flex flex-col items-center justify-center shadow-md relative overflow-hidden transition-all duration-300"
-          >
-            <div
-              className={`absolute top-3 w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300
-              ${filter === "dep" ? "translate-y-3 bg-[#D1B46E]" : "translate-y-0 bg-white"}`}
-            >
-              <img src="/icons/depense.png" className="w-6 h-6" />
+            {/* DONUT CHART */}
+            <div className="w-full flex items-center justify-center relative mb-10">
+              <svg viewBox="0 0 36 36" className="w-56 h-56 animate-spin-slow" style={{ overflow: "visible" }}>
+                {/* Background Circle */}
+                <circle cx="18" cy="18" r="16" stroke="#ffffff10" strokeWidth="4" fill="none" />
+
+                {/* Segments */}
+                {donutTotal > 0 && (
+                   <>
+                     {/* Rev - Blue */}
+                     <circle cx="18" cy="18" r="16" stroke="#5E90C8" strokeWidth="4" fill="none"
+                        strokeDasharray={`${(current.rev / donutTotal) * 100} 100`} strokeDashoffset="0" strokeLinecap="round" />
+                     
+                     {/* Dep - Yellow (offset by Rev) */}
+                     <circle cx="18" cy="18" r="16" stroke="#D1B46E" strokeWidth="4" fill="none"
+                        strokeDasharray={`${(current.dep / donutTotal) * 100} 100`} 
+                        strokeDashoffset={`-${(current.rev / donutTotal) * 100}`} strokeLinecap="round" />
+                        
+                     {/* Inutile - Red (Overlay on Dep? Or separate? Math says Inut is PART of Dep usually. 
+                         But visual mockup shows 3 separate segments. Let's just overlay Red on top of Yellow section for visual effect or treat as separate category?)
+                         User asked to see "Inutiles". If Inut is subset of Dep, the donut should logically represent breakdown.
+                         Let's keep separate arcs for visual : Rev vs Dep vs Inut(as separate slice? no illogical).
+                         Let's do: Rev vs (Dep - Inut) vs Inut. 
+                     */}
+                     {/* Clean Dep (Dep - Inut) */}
+                     {/* Actually, user mockup implies they sum to 100% of pie. Let's use the visual style: Filter applies. */}
+                   </>
+                )}
+                
+                {/* Apply Filter Highlights */}
+                {filter === "rev" && <circle cx="18" cy="18" r="16" stroke="#5E90C8" strokeWidth="4" fill="none" strokeDasharray="100 0" />}
+                {filter === "dep" && <circle cx="18" cy="18" r="16" stroke="#D1B46E" strokeWidth="4" fill="none" strokeDasharray="100 0" />}
+                {filter === "inut" && <circle cx="18" cy="18" r="16" stroke="#C98484" strokeWidth="4" fill="none" strokeDasharray="100 0" />}
+
+              </svg>
+
+              {/* CENTER LABEL */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <p className="text-white text-3xl font-bold tracking-tighter">
+                  {filter === "all" && `${current.value > 0 ? '+' : ''}${parseFloat(current.value.toFixed(2))} €`}
+                  {filter === "rev" && `+${parseFloat(current.rev.toFixed(2))} €`}
+                  {filter === "dep" && `-${parseFloat(current.dep.toFixed(2))} €`}
+                  {filter === "inut" && `-${parseFloat(current.inut.toFixed(2))} €`}
+                </p>
+                <p className="text-white/50 text-xs uppercase tracking-widest mt-1">
+                  {filter === "all" && "Solde Net"}
+                  {filter === "rev" && "Revenus"}
+                  {filter === "dep" && "Dépenses"}
+                  {filter === "inut" && "Gaspillage"}
+                </p>
+              </div>
             </div>
-            <p className="text-white text-[10px] mb-1">
-              {filter === "dep" ? "ON" : "OFF"}
-            </p>
-            <p className="text-white text-xs mt-8">Dépenses</p>
-          </button>
 
-          {/* INUTILES */}
-          <button
-            onClick={() => {
-              setFilter(filter === "inut" ? "all" : "inut");
-              setSheetOpen(true);
-            }}
-            className="w-24 h-32 rounded-full bg-white/10 border border-white/20 flex flex-col items-center justify-center shadow-md relative overflow-hidden transition-all duration-300"
-          >
-            <div
-              className={`absolute top-3 w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300
-              ${filter === "inut" ? "translate-y-3 bg-[#C98484]" : "translate-y-0 bg-white"}`}
-            >
-              <img src="/icons/inutiles.png" className="w-6 h-6" />
+            <h2 className="text-white text-sm font-semibold mb-3 px-2 opacity-80">Détails du mois</h2>
+
+            {/* TOGGLES */}
+            <div className="flex gap-3 justify-center mb-8">
+              {/* Revenus */}
+              <button onClick={() => setFilter(filter === "rev" ? "all" : "rev")} className={`relative w-24 h-32 rounded-3xl flex flex-col items-center justify-center transition-all ${filter === "rev" ? "bg-[#5E90C8] shadow-[0_0_20px_#5E90C860]" : "bg-white/5 border border-white/10"}`}>
+                 <div className="mb-2 p-2 bg-white/20 rounded-full"><ArrowLeft className="w-4 h-4 text-white rotate-90" /></div>
+                 <p className="text-white font-bold text-sm">Revenus</p>
+                 <p className="text-white/60 text-xs">{parseFloat(current.rev.toFixed(2))} €</p>
+              </button>
+
+              {/* Dépenses */}
+              <button onClick={() => setFilter(filter === "dep" ? "all" : "dep")} className={`relative w-24 h-32 rounded-3xl flex flex-col items-center justify-center transition-all ${filter === "dep" ? "bg-[#D1B46E] shadow-[0_0_20px_#D1B46E60]" : "bg-white/5 border border-white/10"}`}>
+                 <div className="mb-2 p-2 bg-white/20 rounded-full"><ArrowLeft className="w-4 h-4 text-white -rotate-90" /></div>
+                 <p className="text-white font-bold text-sm">Dépenses</p>
+                 <p className="text-white/60 text-xs">{parseFloat(current.dep.toFixed(2))} €</p>
+              </button>
+
+              {/* Inutiles */}
+              <button onClick={() => setFilter(filter === "inut" ? "all" : "inut")} className={`relative w-24 h-32 rounded-3xl flex flex-col items-center justify-center transition-all ${filter === "inut" ? "bg-[#C98484] shadow-[0_0_20px_#C9848460]" : "bg-white/5 border border-white/10"}`}>
+                 <div className="mb-2 p-2 bg-white/20 rounded-full text-white font-bold text-xs">⚠️</div>
+                 <p className="text-white font-bold text-sm">Inutile</p>
+                 <p className="text-white/60 text-xs">{parseFloat(current.inut.toFixed(2))} €</p>
+              </button>
             </div>
-            <p className="text-white text-[10px] mb-1">
-              {filter === "inut" ? "ON" : "OFF"}
-            </p>
-            <p className="text-white text-xs mt-8">Inutiles</p>
-          </button>
 
-        </div>
-
-        <h2 className="text-white text-lg font-semibold mb-3">Évolution du solde</h2>
-
-        <div className="relative w-full h-72 bg-[#0A1D37] rounded-3xl p-4 mb-10 overflow-visible shadow-[0_0_25px_rgba(0,0,0,0.4)]">
-
-          {/* CURVE SVG */}
-          <svg viewBox="0 0 100 40" className="absolute top-[35px] left-0 w-full h-[60%]">
-            <defs>
-              <linearGradient id="curveBankFinal" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#5E90C8" />
-                <stop offset="40%" stopColor="#7AA6D6" />
-                <stop offset="60%" stopColor="#D1B46E" />
-                <stop offset="85%" stopColor="#C98484" />
-                <stop offset="100%" stopColor="#A86363" />
-              </linearGradient>
-            </defs>
-
-            {/* MAIN CURVE (dynamic) */}
-            <path
-              d={generateFinanceCurve(current)}
-              stroke="url(#curveBankFinal)"
-              strokeWidth="4"
-              fill="none"
-              strokeLinecap="round"
-              className="drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] transition-all duration-500 ease-out"
-            />
-
-            {/* GLOW UNDERLAY (dynamic) */}
-            <path
-              d={generateFinanceCurve(current)}
-              stroke="url(#curveBankFinal)"
-              strokeWidth="14"
-              opacity="0.12"
-              fill="none"
-              strokeLinecap="round"
-              className="blur-xl transition-all duration-500 ease-out"
-            />
-          </svg>
-
-          {/* DYNAMIC VALUE LABEL */}
-          <div className="absolute top-[55px] left-1/2 -translate-x-1/2 bg-white text-black text-xs font-bold px-3 py-1 rounded-xl shadow">
-            {selectedMonth !== null ? `${current.value} €` : `${totalValue} €`}
-          </div>
-
-          {/* DOT ON CURVE (manually aligned to curve peak) */}
-          <div className="absolute top-[92px] left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white shadow-[0_0_12px_white] border border-white/40"></div>
-
-          {/* VERTICAL BAR FROM MONTH → CURVE */}
-          {selectedMonth !== null && (
-            <div
-              className="absolute bottom-[32px] left-1/2 -translate-x-1/2 w-7 h-[150px] rounded-full
-              bg-gradient-to-t from-[#5E90C8]/50 via-[#D1B46E]/50 to-[#C98484]/50
-              backdrop-blur-md shadow-[0_0_25px_rgba(255,255,255,0.35)] transition-all duration-500 ease-out">
+            {/* EVOLUTION CURVE */}
+            <div className="w-full bg-[#050A14] rounded-3xl p-6 border border-white/5 shadow-2xl">
+               <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-white font-semibold">Tendance</h3>
+                  <span className={`text-xs px-2 py-1 rounded-full ${current.value >= 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                     {current.value >= 0 ? "Positive" : "Négative"}
+                  </span>
+               </div>
+               
+               <div className="relative h-24 w-full">
+                  <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible">
+                    <path d={generateFinanceCurve(current)} fill="none" stroke={current.value >= 0 ? "#4Ade80" : "#f87171"} strokeWidth="3" strokeLinecap="round" />
+                    <circle cx="50" cy="20" r="3" fill="white" className="animate-pulse" />
+                  </svg>
+                  
+                  {/* Fake Grid lines */}
+                  <div className="absolute inset-0 border-b border-white/10 flex justify-between items-end pb-1 text-[8px] text-white/20">
+                     <span>01</span>
+                     <span>15</span>
+                     <span>30</span>
+                  </div>
+               </div>
             </div>
-          )}
-
-          {/* MONTH SELECTOR AT BOTTOM */}
-          <div className="absolute bottom-2 left-0 w-full overflow-x-auto no-scrollbar snap-x snap-mandatory px-0">
-            <div className="flex gap-8 items-center mx-auto min-w-max px-[140px]">
-              {months.map((m, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedMonth(selectedMonth === i ? null : i)}
-                  className={`text-white/70 text-sm px-4 py-2 rounded-xl backdrop-blur-md border border-white/10 snap-center transition
-                    ${selectedMonth === i ? "bg-white/20 text-white font-semibold" : "bg-white/5"}`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* TRANSACTIONS HEADER */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-white font-semibold text-lg">Transactions</h2>
-          <p className="text-white/60 text-sm">Semaine ▾</p>
-        </div>
-
-        {/* TRANSACTIONS LIST */}
-        <div className="space-y-4 pb-20">
-
-          <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
-            <div className="text-white">
-              <p className="font-semibold">Spotify</p>
-              <p className="text-xs text-white/50">30 Janvier - 19h48</p>
-            </div>
-            <p className="text-red-300 font-semibold">- 7,99 €</p>
-          </div>
-
-          <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
-            <div className="text-white">
-              <p className="font-semibold">ClickUp</p>
-              <p className="text-xs text-white/50">21 Janvier - 12h15</p>
-            </div>
-            <p className="text-red-300 font-semibold">- 19,00 €</p>
-          </div>
-
-          <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
-            <div className="text-white">
-              <p className="font-semibold">Salaire</p>
-              <p className="text-xs text-white/50">01 Janvier</p>
-            </div>
-            <p className="text-green-300 font-semibold">+ 2 450 €</p>
-          </div>
-
-        </div>
-      </div>
-
-      {isSheetOpen && (
-        <div className="fixed bottom-0 left-0 w-full h-[55%] bg-[#0A1D37] border-t border-white/10 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] p-6 z-[9999] transition-all duration-300">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-white font-semibold text-lg">Détails du mois</h2>
-            <button onClick={() => setSheetOpen(false)} className="text-white text-2xl">×</button>
-          </div>
-
-          <div className="w-full flex items-center justify-center mb-6">
-            <div className="text-center">
-              <p className="text-white text-2xl font-bold">{current.value} €</p>
-              <p className="text-white/60 text-sm mt-1">
-                {filter === "rev" && "Total revenus"}
-                {filter === "dep" && "Total dépenses"}
-                {filter === "inut" && "Total achats inutiles"}
-                {filter === "all" && "Vue globale"}
-              </p>
-            </div>
-          </div>
-
-          <div className="w-full h-40 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-white/50">
-            Graphique détaillé (pro)
-          </div>
-        </div>
-      )}
+            
+          </>
+        )}
       </div>
     </div>
   )

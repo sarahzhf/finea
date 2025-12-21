@@ -110,8 +110,9 @@ finea/
 Lancer Next en exposant le réseau :
   npm run dev -- --hostname 0.0.0.0
 
-Trouver l’IP locale du Mac :
-  ipconfig getifaddr en0
+Trouver l’IP locale :
+  Mac : ipconfig getifaddr en0
+  Windows : ipconfig (chercher "Adresse IPv4")
 
 Puis ouvrir depuis le téléphone :
   http://IP-LOCALE:3000
