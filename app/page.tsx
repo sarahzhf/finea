@@ -23,6 +23,7 @@ export default function HomePage() {
     { name: "Scanner", route: "/scan", icon: "/icons/scanner.png" },
     { name: "Missions", route: "/missions", icon: "/icons/missions.png" },
     { name: "Quiz", route: "/quiz", icon: "/icons/quiz.png" },
+    { name: "Conseils", route: "/conseils", icon: "/icons/conseils.png" },
   ]
 
 function ModuleDeck({
@@ -45,7 +46,7 @@ function ModuleDeck({
   return (
     <div className="relative w-full h-[180px] -mt-2 flex items-center justify-center overflow-visible">
       {/* subtle floor shadow */}
-      <div className="absolute left-1/2 top-[60%] -translate-x-1/2 w-[88%] h-[120px] rounded-[999px] bg-black/30 blur-2xl pointer-events-none" />
+      <div className="absolute left-[45%] top-[60%] -translate-x-1/2 w-[88%] h-[120px] rounded-[999px] bg-black/30 blur-2xl pointer-events-none" />
 
       <motion.div
         className="flex items-center justify-center gap-0 will-change-transform"
@@ -63,13 +64,16 @@ function ModuleDeck({
       >
         {modules.map((m, i) => {
           const delta = i - activeIndex
-          const abs = Math.abs(delta)
+          const clampedDelta = Math.max(-2, Math.min(2, delta))
+          const abs = Math.abs(clampedDelta)
 
           // fan/deck effect (cards on the sides)
-          const x = delta * 58
+          // stronger left anchor for initial card
+          const baseOffset = -78
+          const x = clampedDelta * 64 + baseOffset
           const y = abs === 0 ? -12 : 6
           const scale = abs === 0 ? 1 : 0.9
-          const rotateY = abs === 0 ? 0 : delta < 0 ? 22 : -22
+          const rotateY = abs === 0 ? 0 : clampedDelta < 0 ? 22 : -22
           const rotateZ = 0
           const opacity = abs > 2 ? 0 : abs === 2 ? 0.6 : 1
           const zIndex = 50 - abs
@@ -91,7 +95,7 @@ function ModuleDeck({
               }}
               transition={{ type: "spring", stiffness: 260, damping: 26 }}
             >
-              <div className="w-[140px] h-[175px] rounded-[26px] bg-white/10 backdrop-blur-2xl border border-white/15 shadow-[0_18px_40px_rgba(0,0,0,0.55)] overflow-hidden">
+              <div className="w-[132px] h-[170px] rounded-[26px] bg-white/10 backdrop-blur-2xl border border-white/15 shadow-[0_18px_40px_rgba(0,0,0,0.55)] overflow-hidden">
                 <div className="h-full w-full flex flex-col items-center justify-center">
                   <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center">
                     <img src={m.icon} alt={m.name} className="w-8 h-8" />
@@ -123,11 +127,12 @@ function ModuleDeck({
     <div className="w-full min-h-screen bg-gradient-to-b from-[#253745] via-[#4A5C6A] to-[#11212D] flex justify-center">
 
       {/* iPhone frame */}
-      <div className="w-full min-h-screen bg-[#050A14] px-4 pt-8 pb-24 relative overflow-x-hidden">
+      <div className="w-full min-h-screen bg-[#050A14] flex justify-center relative overflow-visible">
+        <div className="w-full max-w-[420px] px-4 pt-8 pb-24">
 
         {/* Glow background */}
-        <div className="absolute -top-16 -left-20 w-72 h-72 bg-[#000000]/20 blur-3xl rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#000000]/15 blur-3xl rounded-full pointer-events-none"></div>
+        <div className="absolute -top-16 -left-20 w-72 h-72 bg-[#000000]/20 blur-3xl rounded-full pointer-events-none z-0"></div>
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#000000]/15 blur-3xl rounded-full pointer-events-none z-0"></div>
 
         {/* Hamburger Menu Button */}
         <button
@@ -183,16 +188,14 @@ function ModuleDeck({
         </div>
 
         {/* Tous les modules Header */}
-        <div className="relative z-10 flex justify-between items-center px-4 mt-1">
+        <div className="relative z-10 flex justify-between items-center px-4 mt-5">
           <h2 className="text-lg font-semibold text-white">Tous les modules</h2>
           <span className="text-[#F5D657] text-xl">{">"}</span>
         </div>
 
         {/* MODULES — deck 3D (cartes sur les côtés) */}
-        <div className="relative z-50 -mt-1 mb-6 flex justify-center">
-          <div className="relative w-full max-w-[320px] flex justify-center">
-            <ModuleDeck modules={modules} onOpen={(route) => router.push(route)} />
-          </div>
+        <div className="relative z-[200] -mt-5 mb-6 w-full">
+          <ModuleDeck modules={modules} onOpen={(route) => router.push(route)} />
         </div>
 
         {/* Slide-in Menu */}
@@ -298,6 +301,7 @@ function ModuleDeck({
           </div>
         </div>
       )}
+        </div>
       </div>
     </div>
     </>

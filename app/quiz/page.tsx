@@ -1,202 +1,106 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function QuizPage() {
-  const router = useRouter()
-  const pathname = usePathname()
+const TAG_OPTIONS = [
+  { id: "budget", label: "Budget" },
+  { id: "depenses", label: "Dépenses" },
+  { id: "revenus", label: "Revenus" },
+  { id: "epargne", label: "Épargne" },
+  { id: "precaution", label: "Épargne de précaution" },
+  { id: "credit", label: "Crédit" },
+  { id: "investissement", label: "Investissement" },
+];
 
-  const navItems = [
-    { name: "Home", route: "/", icon: "🏠" },
-    { name: "Quiz", route: "/quiz", icon: "📝" },
-    { name: "Profil", route: "/profil", icon: "👤" },
-    { name: "Réglages", route: "/settings", icon: "⚙️" },
-  ]
+export default function QuizIndexPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  const questions = [
-    {
-      q: "Quelle est la meilleure définition d'un budget ?",
-      options: [
-        "Un tableau où on note ses dépenses",
-        "Un plan qui organise ses revenus et dépenses",
-        "Un outil utilisé seulement par les entreprises",
-        "Une estimation vague de combien on peut dépenser"
-      ],
-      answer: 1
-    },
-    {
-      q: "Qu’est‑ce qu’une épargne de précaution ?",
-      options: [
-        "Un compte utilisé pour les vacances",
-        "Un montant mis de côté pour les imprévus",
-        "Une épargne pour acheter une maison",
-        "Un prêt bancaire spécial"
-      ],
-      answer: 1
-    },
-    {
-      q: "Quel achat est généralement considéré comme une dépense inutile ?",
-      options: [
-        "Un café hors de prix tous les jours",
-        "Les courses alimentaires essentielles",
-        "Payer le loyer",
-        "Économiser 20€ par mois"
-      ],
-      answer: 0
-    }
-  ]
+  async function start() {
+    setLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      qs.set("count", "10");
+      if (selectedTags.length > 0) {
+        qs.set("tags", selectedTags.join(","));
+      }
 
-  const [current, setCurrent] = useState(0)
-  const [selected, setSelected] = useState<number | null>(null)
-  const [score, setScore] = useState(0)
-  const [finished, setFinished] = useState(false)
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const res = await fetch(`${origin}/api/quiz/start?${qs.toString()}`);
 
-  function submitAnswer() {
-    if (selected === null) return
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("API did not return valid JSON");
+      }
 
-    if (selected === questions[current].answer) {
-      setScore(score + 1)
-    }
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to start quiz");
+      }
 
-    if (current + 1 === questions.length) {
-      setFinished(true)
-    } else {
-      setCurrent(current + 1)
-      setSelected(null)
+      const sessionId = data?.progress?.sessionId;
+      if (!sessionId || typeof sessionId !== "string") {
+        console.error("Invalid start response", data);
+        throw new Error("Session ID invalide (quiz non initialisé)");
+      }
+
+      router.push(`/quiz/${encodeURIComponent(sessionId)}`);
+    } catch (e: any) {
+      alert(e?.message ?? "Erreur");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#0A1D37] flex justify-center items-start py-8 px-3">
-      
-      {/* iPhone frame */}
-      <div className="w-[390px] min-h-[780px] bg-[#0F2B52] rounded-[40px] shadow-[0_0_40px_rgba(0,0,0,0.6)] p-6 relative overflow-hidden">
+    <div className="w-full min-h-screen bg-[#050A14] flex justify-center items-start py-8 px-3">
+      <div className="w-[390px] min-h-[780px] bg-[#0B1C33] rounded-[40px] shadow-[0_0_40px_rgba(0,0,0,0.6)] border border-white/10 p-6 text-white">
+        <h1 className="text-xl font-semibold tracking-wide mb-2">Quiz</h1>
+        <p className="text-white/70 text-sm mb-6">
+          Teste tes connaissances et gagne des points.
+        </p>
 
-        {/* Glow */}
-        <div className="absolute -top-20 -left-24 w-72 h-72 bg-[#F5D657]/15 blur-3xl rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#F5D657]/10 blur-3xl rounded-full"></div>
-
-        {/* Title */}
-        <h1 className="relative z-10 text-2xl font-bold text-[#F5D657] mb-6 drop-shadow">
-          Quiz Finance
-        </h1>
-
-        {!finished && (
-          <>
-            {/* Question card */}
-            <div className="
-              relative z-10 mb-8 rounded-3xl p-6
-              bg-[#0F2B52]
-              shadow-[10px_10px_22px_#07101F,-10px_-10px_22px_#173A68]
-            ">
-              <p className="text-[#F5D657] text-lg font-semibold">
-                {questions[current].q}
-              </p>
-            </div>
-
-            {/* Options */}
-            <div className="relative z-10 space-y-4 mb-8">
-              {questions[current].options.map((opt, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelected(index)}
-                  className={`
-                    w-full text-left px-5 py-4 rounded-2xl font-medium
-                    bg-[#0F2B52] text-[#F5D657]
-                    shadow-[8px_8px_18px_#07101F,-8px_-8px_18px_#173A68]
-                    transition-all
-                    ${selected === index ? "ring-2 ring-[#F5D657]" : ""}
-                  `}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-
-            {/* Submit */}
-            <button
-              onClick={submitAnswer}
-              className="
-                w-full py-4 rounded-2xl font-semibold text-[#0F2B52]
-                bg-[#F5D657]
-                shadow-[6px_6px_14px_#07101F,-6px_-6px_14px_#173A68]
-                active:scale-95 transition-all
-              "
+        <label className="block text-sm text-white/80 mb-2">Filtrer par thème (optionnel)</label>
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {TAG_OPTIONS.map((tag) => (
+            <label
+              key={tag.id}
+              className="flex items-center gap-2 text-sm text-white/80"
             >
-              Suivant
-            </button>
-          </>
-        )}
-
-        {finished && (
-          <div className="relative z-10 text-center mt-10">
-            <h2 className="text-[#F5D657] text-4xl font-bold mb-4 drop-shadow">
-              {score}/{questions.length}
-            </h2>
-
-            <p className="text-[#F5D657]/70 text-lg mb-8">
-              {score === questions.length
-                ? "Excellent ! Tu maîtrises parfaitement les bases 🔥"
-                : score >= 2
-                ? "Très bien ! Tu progresses 💪"
-                : "Continue d’apprendre, tu vas t’améliorer 📘"}
-            </p>
-
-            <button
-              onClick={() => router.push("/")}
-              className="
-                w-full py-4 rounded-2xl font-semibold text-[#F5D657]
-                bg-[#0F2B52]
-                shadow-[8px_8px_18px_#07101F,-8px_-8px_18px_#173A68]
-                active:scale-95 transition-all
-              "
-            >
-              ← Retour
-            </button>
-          </div>
-        )}
-
-        {/* Bottom Navigation */}
-        <div
-          className="
-            absolute left-1/2 -translate-x-1/2 bottom-[-8px] 
-            w-[85%]
-            bg-[#0F2B52] rounded-full px-4 py-3
-            shadow-[8px_8px_22px_#07101F,-8px_-8px_22px_#173A68]
-            flex justify-between items-center
-            backdrop-blur-md
-          "
-        >
-          {navItems.map((item) => {
-            const active = pathname === item.route
-            const isQuiz = item.route === "/quiz"
-
-            return (
-              <button
-                key={item.route}
-                onClick={() => router.push(item.route)}
-                className={`
-                  flex flex-col items-center justify-center 
-                  transition-all duration-300
-                  ${isQuiz ? "w-14 h-14 -mt-6 rounded-full" : "w-12 h-12 rounded-2xl"}
-                  ${
-                    active
-                      ? "bg-[#0F2B52] shadow-[inset_6px_6px_12px_#07101F,inset_-6px_-6px_12px_#173A68] scale-110 animate-pulse"
-                      : "bg-[#0F2B52] shadow-[6px_6px_12px_#07101F,-6px_-6px_12px_#173A68] opacity-75 scale-95"
-                  }
-                `}
-              >
-                <span className={isQuiz ? "text-2xl" : "text-xl"}>{item.icon}</span>
-                {!isQuiz && (
-                  <span className="text-[9px] mt-1 text-[#F5D657]">{item.name}</span>
-                )}
-              </button>
-            )
-          })}
+              <input
+                type="checkbox"
+                checked={selectedTags.includes(tag.id)}
+                onChange={() => {
+                  setSelectedTags((prev) =>
+                    prev.includes(tag.id)
+                      ? prev.filter((t) => t !== tag.id)
+                      : [...prev, tag.id]
+                  );
+                }}
+              />
+              {tag.label}
+            </label>
+          ))}
         </div>
+
+        <button
+          onClick={start}
+          disabled={loading}
+          className="w-full rounded-2xl py-4 bg-[#E6D27A] text-[#0B1C33] font-semibold shadow-[0_8px_24px_rgba(230,210,122,0.35)] disabled:opacity-60"
+        >
+          {loading ? "Démarrage..." : "Démarrer une session (10 questions)"}
+        </button>
+        <p className="text-xs text-white/50 mt-3">
+          Une session contient 10 questions sélectionnées parmi l’ensemble disponible.
+        </p>
+
+        <p className="text-xs text-white/50 mt-4">
+          Le mode adaptatif et le profil de compétences peuvent être ajoutés ensuite.
+        </p>
       </div>
     </div>
-  )
+  );
 }

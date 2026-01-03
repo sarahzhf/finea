@@ -340,7 +340,6 @@ export default function StatisticsPage() {
     }
   }, [filter, current])
 
-  /* ---------------- COACH CONTEXT (REAL DATA SENT TO GPT) ---------------- */
   const coachContext = useMemo(() => {
     const txForCoach = filteredTransactions
       .slice(0, 30)
@@ -378,7 +377,6 @@ export default function StatisticsPage() {
     }
   }, [bank, selectedMonth, filter, current, filteredTransactions, useless])
 
-  /* ---------------- CURVE (realistic from cumulative series) ---------------- */
   function curveFromSeries(values: number[]) {
     // values: cumulative over the month (positive/negative). Create 5 control points.
     const n = Math.max(1, values.length)
