@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useAuth } from "@/components/AuthProvider"
 import Card3D from "@/app/components/card3d"
 
 function parseFRDate(dateStr?: unknown) {
@@ -106,7 +105,6 @@ function isUselessExpense(label?: string) {
 export default function BudgetPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { user } = useAuth()
   const bank = (searchParams.get("bank") ?? "CA") as "CA" | "SG"
 
   const [activeTab, setActiveTab] = useState<"stats" | "add" | "more" | null>(null)
@@ -135,20 +133,15 @@ export default function BudgetPage() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>("")
 
-  useEffect(() => {
-    if (user === null) {
-      router.replace("/auth/login")
-    }
-  }, [user, router])
 
   useEffect(() => {
-    fetch(`/api/transactions/summary?bank=${bank}&uid=${user?.uid}`)
+    fetch(`/api/transactions/summary?bank=${bank}`)
       .then(res => res.json())
       .then(setSummary)
-  }, [bank, user])
+  }, [bank])
 
   useEffect(() => {
-    fetch(`/api/transactions/list?bank=${bank}&uid=${user?.uid}`)
+    fetch(`/api/transactions/list?bank=${bank}`)
       .then(res => res.json())
       .then(data => {
         const txRaw = data.transactions ?? []
@@ -162,7 +155,7 @@ export default function BudgetPage() {
 
         setTransactions(tx)
       })
-  }, [bank, user])
+  }, [bank])
 
   const monthKeys = Array.from(
     new Set(
@@ -578,7 +571,7 @@ export default function BudgetPage() {
 
           <button
             onClick={() => {
-              window.location.href = `/budget/statistique?bank=${bank}`
+              router.push(`/budget/statistique?bank=${bank}`)
             }}
             className="flex flex-col items-center"
           >

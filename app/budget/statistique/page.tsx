@@ -23,8 +23,9 @@ export default function StatisticsPage() {
   const { user } = useAuth()
   const bank = (searchParams.get("bank") ?? "CA") as Bank
   useEffect(() => {
+    if (user === undefined) return
     if (user === null) {
-      router.replace("/auth/login")
+      router.replace("/login")
     }
   }, [user, router])
   const [filter, setFilter] = useState<Filter>("all")
@@ -247,7 +248,6 @@ export default function StatisticsPage() {
     return { useless: false, reason: "unknown" }
   }
 
-  /* ---------------- FETCH ---------------- */
   useEffect(() => {
     fetch(`/api/transactions/list?bank=${bank}&uid=${user?.uid}`)
       .then(r => r.json())
@@ -263,7 +263,6 @@ export default function StatisticsPage() {
       .catch(() => setTransactions([]))
   }, [bank, user])
 
-  /* ---------------- MONTHS ---------------- */
   const monthKeys = useMemo(() => {
     return Array.from(
       new Set(
@@ -487,7 +486,7 @@ export default function StatisticsPage() {
 
           {/* HEADER */}
           <div className="flex justify-between items-center mb-6">
-            <button onClick={() => window.history.back()} className="text-white text-3xl">‹</button>
+            <button onClick={() => router.back()} className="text-white text-3xl">‹</button>
             <div className="text-center">
               <h1 className="text-xl font-bold text-white">Statistiques</h1>
               <p className="text-white/60 text-xs mt-1">

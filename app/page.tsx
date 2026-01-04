@@ -1,5 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
+import { useAuth } from "@/components/AuthProvider"
+
 import { useRouter, usePathname } from "next/navigation"
 import { useState } from "react";
 import { motion, useMotionValue } from "framer-motion"
@@ -8,6 +11,13 @@ import CoachChat from "./components/coach_chat";
 
 export default function HomePage() {
   const router = useRouter()
+  const { user, loading } = useAuth()
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [user, loading, router])
   const pathname = usePathname()
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -116,6 +126,9 @@ function ModuleDeck({
 
 
   const isHome = pathname === "/"
+  if (loading || !user) {
+    return null
+  }
   return (
     <>
     <style jsx>{`
@@ -230,7 +243,17 @@ function ModuleDeck({
 
               <div className="w-full h-[1px] bg-white/10 my-2"></div>
 
-              <button className="text-left text-sm text-red-400 font-semibold">Se déconnecter</button>
+              <button
+                onClick={async () => {
+                  const { signOut } = await import("firebase/auth")
+                  const { auth } = await import("@/lib/firebase")
+                  await signOut(auth)
+                  router.replace("/login")
+                }}
+                className="text-left text-sm text-red-400 font-semibold"
+              >
+                Se déconnecter
+              </button>
             </div>
 
             {/* Click zone to close */}
