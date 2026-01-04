@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+import { useAuth } from "@/components/AuthProvider"
 import Card3D from "@/app/components/card3d"
 
 function parseFRDate(dateStr?: unknown) {
@@ -104,6 +105,8 @@ function isUselessExpense(label?: string) {
 
 export default function BudgetPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const { user } = useAuth()
   const bank = (searchParams.get("bank") ?? "CA") as "CA" | "SG"
 
   const [activeTab, setActiveTab] = useState<"stats" | "add" | "more" | null>(null)
@@ -133,13 +136,19 @@ export default function BudgetPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>("")
 
   useEffect(() => {
-    fetch(`/api/transactions/summary?bank=${bank}`)
-      .then(res => res.json())
-      .then(setSummary)
-  }, [bank])
+    if (user === null) {
+      router.replace("/auth/login")
+    }
+  }, [user, router])
 
   useEffect(() => {
-    fetch(`/api/transactions/list?bank=${bank}`)
+    fetch(`/api/transactions/summary?bank=${bank}&uid=${user?.uid}`)
+      .then(res => res.json())
+      .then(setSummary)
+  }, [bank, user])
+
+  useEffect(() => {
+    fetch(`/api/transactions/list?bank=${bank}&uid=${user?.uid}`)
       .then(res => res.json())
       .then(data => {
         const txRaw = data.transactions ?? []
@@ -153,7 +162,7 @@ export default function BudgetPage() {
 
         setTransactions(tx)
       })
-  }, [bank])
+  }, [bank, user])
 
   const monthKeys = Array.from(
     new Set(

@@ -2,7 +2,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+
+import { useAuth } from "@/components/AuthProvider"
 
 type Bank = "CA" | "SG"
 type Filter = "rev" | "dep" | "inut" | "all"
@@ -17,7 +19,14 @@ type Tx = {
 
 export default function StatisticsPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const { user } = useAuth()
   const bank = (searchParams.get("bank") ?? "CA") as Bank
+  useEffect(() => {
+    if (user === null) {
+      router.replace("/auth/login")
+    }
+  }, [user, router])
   const [filter, setFilter] = useState<Filter>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("")
   const [isSheetOpen, setSheetOpen] = useState(false)
@@ -240,7 +249,7 @@ export default function StatisticsPage() {
 
   /* ---------------- FETCH ---------------- */
   useEffect(() => {
-    fetch(`/api/transactions/list?bank=${bank}`)
+    fetch(`/api/transactions/list?bank=${bank}&uid=${user?.uid}`)
       .then(r => r.json())
       .then(data => {
         const tx = dedupeTransactions((data?.transactions ?? []) as Tx[])
@@ -252,7 +261,7 @@ export default function StatisticsPage() {
         setTransactions(tx)
       })
       .catch(() => setTransactions([]))
-  }, [bank])
+  }, [bank, user])
 
   /* ---------------- MONTHS ---------------- */
   const monthKeys = useMemo(() => {
