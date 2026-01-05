@@ -48,6 +48,13 @@ export default function EpargnePage() {
   const [existingEntry, setExistingEntry] = useState<SavingsEntry | null>(null)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [viewMode, setViewMode] = useState<"calendar" | "chart">("calendar")
+  const [iaOpen, setIaOpen] = useState(false)
+  const [fineaOpen, setFineaOpen] = useState(false)
+  const [coachInput, setCoachInput] = useState("")
+  const [coachMessages, setCoachMessages] = useState<
+    { role: "user" | "finea"; text: string }[]
+  >([])
+  const [coachLoading, setCoachLoading] = useState(false)
   
   const router = useRouter()
   const { user } = useAuth()
@@ -303,6 +310,45 @@ export default function EpargnePage() {
     setSelectedYear(selectedYear + 1)
   }
 
+  const openFineaWithPrompt = async (prompt: string) => {
+    setFineaOpen(true)
+    setCoachLoading(true)
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: prompt }],
+          context: {
+            month: currentMonth.toISOString().slice(0, 7),
+            totalSaved,
+            targetAmount,
+            frequency: savingsGoal?.frequency ?? null,
+            entriesSample: savingsEntries.slice(-20),
+          },
+        }),
+      })
+
+      const data = await res.json()
+      const reply =
+        data?.reply ||
+        "Je n’ai pas pu analyser ton épargne pour le moment."
+
+      setCoachMessages([
+        { role: "user", text: prompt },
+        { role: "finea", text: reply },
+      ])
+    } catch {
+      setCoachMessages([
+        { role: "user", text: prompt },
+        { role: "finea", text: "Erreur interne du coach Finéa." },
+      ])
+    } finally {
+      setCoachLoading(false)
+    }
+  }
+
   return (
     <div className="w-full min-h-screen bg-[#050A14] flex justify-center items-start py-8 px-3">
       <div className="w-[390px] min-h-[780px] bg-[#0A1D37] rounded-[40px] shadow-none p-6 relative overflow-hidden pb-24">
@@ -536,6 +582,91 @@ export default function EpargnePage() {
                 >
                   + Ajouter de l'épargne
                 </button>
+
+                {/* IA FINÉA – COACH ÉPARGNE */}
+                <div className="mt-5 bg-white/5 border border-white/10 rounded-2xl p-4 shadow-none">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-white">Coach Finéa</p>
+                    <button
+                      onClick={() => setIaOpen(v => !v)}
+                      className="text-xs text-[#F5D657]"
+                    >
+                      {iaOpen ? "Fermer" : "Ouvrir"}
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-white/60 mb-3">
+                    Analyse intelligente de ton épargne et plan personnalisé.
+                  </p>
+
+                  {iaOpen && (
+                    <div className="space-y-3">
+                      <button
+                        onClick={() =>
+                          openFineaWithPrompt(
+                            "Analyse mon épargne ce mois-ci et donne-moi 3 actions concrètes."
+                          )
+                        }
+                        className="w-full py-2 rounded-xl bg-[#F5D657]/10 text-[#F5D657] text-xs"
+                      >
+                        Analyse du mois
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          openFineaWithPrompt(
+                            "Propose-moi un plan réaliste pour atteindre mon objectif d’épargne."
+                          )
+                        }
+                        className="w-full py-2 rounded-xl bg-[#F5D657]/10 text-[#F5D657] text-xs"
+                      >
+                        Plan pour mon objectif
+                      </button>
+
+                      {fineaOpen && (
+                        <div className="bg-[#0A1D37] border border-white/10 rounded-xl p-3 space-y-2">
+                          {coachMessages.map((m, i) => (
+                            <div
+                              key={i}
+                              className={`text-xs ${
+                                m.role === "user" ? "text-white" : "text-[#F5D657]"
+                              }`}
+                            >
+                              {m.text}
+                            </div>
+                          ))}
+
+                          {coachLoading && (
+                            <p className="text-xs text-white/40">Finéa réfléchit…</p>
+                          )}
+
+                          <form
+                            onSubmit={e => {
+                              e.preventDefault()
+                              if (!coachInput.trim()) return
+                              openFineaWithPrompt(coachInput)
+                              setCoachInput("")
+                            }}
+                            className="flex gap-2 mt-2"
+                          >
+                            <input
+                              value={coachInput}
+                              onChange={e => setCoachInput(e.target.value)}
+                              placeholder="Écris à Finéa…"
+                              className="flex-1 bg-[#050A14] text-white text-xs rounded-lg px-2 py-1"
+                            />
+                            <button
+                              type="submit"
+                              className="px-3 rounded-lg bg-[#F5D657] text-[#0F2B52] text-xs"
+                            >
+                              ➤
+                            </button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
