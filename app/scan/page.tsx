@@ -1,134 +1,306 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/AuthProvider"
+
+interface ReceiptData {
+  merchant?: string;
+  date?: string;
+  total?: string;
+  currency?: string;
+  items: Array<{
+    description: string;
+    quantity?: string;
+    price?: string;
+  }>;
+  rawText: string;
+}
 
 export default function ScanPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  
   const router = useRouter()
-  const pathname = usePathname()
-
-  const navItems = [
-    { name: "Home", route: "/", icon: "🏠" },
-    { name: "Scan", route: "/scan", icon: "📸" },
-    { name: "Profil", route: "/profil", icon: "👤" },
-    { name: "Réglages", route: "/settings", icon: "⚙️" },
-  ]
+  const { user } = useAuth()
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
+    console.log("📸 Image sélectionnée:", file.name)
+    
+    setError(null)
+    setReceiptData(null)
+    setSaveSuccess(false)
+    setImageFile(file)
+
     const reader = new FileReader()
-    reader.onload = () => setSelectedImage(reader.result as string)
+    reader.onload = () => {
+      console.log("✅ Image chargée en base64")
+      setSelectedImage(reader.result as string)
+    }
     reader.readAsDataURL(file)
+  }
+
+  async function analyzeReceipt() {
+    console.log("🚀 analyzeReceipt appelée !")
+    
+    if (!imageFile) {
+      console.error("❌ Pas de fichier image")
+      return
+    }
+
+    setIsAnalyzing(true)
+    setError(null)
+
+    try {
+      console.log("📤 Envoi de la requête à /api/ocr...")
+      
+      const formData = new FormData()
+      formData.append('image', imageFile)
+
+      const response = await fetch('api/ocr', {
+        method: 'POST',
+        body: formData,
+      })
+
+      console.log("📥 Réponse reçue, status:", response.status)
+
+      const result = await response.json()
+      console.log("📊 Résultat:", result)
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur lors de l\'analyse')
+      }
+
+      setReceiptData(result.data)
+      console.log("✅ Données du ticket extraites :", result.data)
+
+    } catch (err: any) {
+      console.error('❌ Erreur:', err)
+      setError(err.message || 'Une erreur est survenue')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  async function saveReceipt() {
+    // 🔍 LIGNE AJOUTÉE POUR DEBUG
+    console.log("🔍 User actuel:", user)
+    console.log("🔍 User UID:", user?.uid)
+    
+    if (!receiptData) {
+      setError("Aucune donnée à sauvegarder")
+      return
+    }
+
+    if (!user) {
+      setError("Vous devez être connecté pour sauvegarder")
+      return
+    }
+
+    setIsSaving(true)
+    setError(null)
+    setSaveSuccess(false)
+
+    try {
+      console.log("💾 Sauvegarde du ticket...")
+
+      const response = await fetch('/api/receipts/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptData,
+          userId: user.uid,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur lors de la sauvegarde')
+      }
+
+      console.log("✅ Ticket sauvegardé:", result.receiptId)
+      setSaveSuccess(true)
+
+      // Rediriger vers la page des dépenses après 2 secondes
+      setTimeout(() => {
+        router.push('/depenses')
+      }, 2000)
+
+    } catch (err: any) {
+      console.error('❌ Erreur sauvegarde:', err)
+      setError(err.message || 'Erreur lors de la sauvegarde')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function resetScan() {
+    console.log("🔄 Reset du scan")
+    setSelectedImage(null)
+    setImageFile(null)
+    setReceiptData(null)
+    setError(null)
+    setSaveSuccess(false)
   }
 
   return (
     <div className="w-full min-h-screen bg-[#0A1D37] flex justify-center items-start py-8 px-3">
-
-      {/* iPhone frame */}
-      <div className="w-[390px] min-h-[780px] bg-[#0F2B52] rounded-[40px] shadow-[0_0_40px_rgba(0,0,0,0.6)] p-6 relative overflow-hidden">
-
-        {/* Glow */}
-        <div className="absolute -top-16 -left-20 w-72 h-72 bg-[#F5D657]/15 blur-3xl rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#F5D657]/10 blur-3xl rounded-full"></div>
-
-        {/* Title */}
-        <h1 className="relative z-10 text-2xl font-bold text-[#F5D657] mb-6 drop-shadow">
-          Scanner un ticket
-        </h1>
-
-        {/* Upload box */}
-        {!selectedImage && (
-          <label
-            className="
-              relative z-10 w-full h-44 rounded-3xl 
-              bg-[#0F2B52]
-              flex flex-col items-center justify-center cursor-pointer
-              shadow-[10px_10px_22px_#07101F,-10px_-10px_22px_#173A68]
-              text-[#F5D657]
-            "
+      <div className="w-[390px] min-h-[780px] bg-[#0A1D37] rounded-[40px] shadow-[0_0_40px_rgba(0,0,0,0.4)] p-6 relative overflow-hidden">
+        {/* HEADER AVEC BOUTON RETOUR */}
+        <div className="relative z-10 flex items-center justify-between mb-5">
+          <button
+            onClick={() => router.push('/')}
+            className="text-[#F5D657] text-xl active:scale-95 transition"
           >
+            ←
+          </button>
+          <h1 className="text-xl font-semibold text-[#F5D657] drop-shadow">
+            Scanner un ticket
+          </h1>
+          <div className="w-6"></div>
+        </div>
+
+        {/* <h1 className="relative z-10 text-2xl font-bold text-white mb-6 drop-shadow">
+          Scanner un ticket
+        </h1> */}
+
+        {!selectedImage && (
+          <label className="relative z-10 w-full h-44 rounded-3xl bg-white/5 border border-white/10 flex flex-col items-center justify-center cursor-pointer shadow-md text-white">
             <span className="text-3xl mb-2">📸</span>
-            <span className="text-sm opacity-80">Importer une photo</span>
+            <span className="text-sm text-white/60">Importer une photo</span>
             <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
           </label>
         )}
 
-        {/* Image preview */}
         {selectedImage && (
-          <div className="relative z-10 w-full flex flex-col items-center">
+          <div className="relative z-10 w-full flex flex-col items-center max-h-[600px] overflow-y-auto">
             <img
               src={selectedImage}
               alt="Ticket"
-              className="
-                w-full rounded-2xl mb-4
-                shadow-[10px_10px_22px_#07101F,-10px_-10px_22px_#173A68]
-                border border-[#F5D657]/40
-              "
+              className="w-full rounded-2xl mb-4 shadow-md border border-white/10"
             />
 
-            {/* OCR Button */}
-            <button
-              className="
-                w-full py-4 rounded-2xl font-semibold text-[#F5D657]
-                bg-[#0F2B52]
-                shadow-[8px_8px_18px_#07101F,-8px_-8px_18px_#173A68]
-                active:scale-95 transition-all 
-              "
-            >
-              🔍 Analyser le ticket (OCR)
-            </button>
+            {error && (
+              <div className="w-full p-4 mb-4 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-sm">
+                ⚠️ {error}
+              </div>
+            )}
 
-            {/* Reset */}
-            <button
-              className="mt-4 text-sm text-[#F5D657]/70 underline"
-              onClick={() => setSelectedImage(null)}
-            >
-              Choisir une autre photo
-            </button>
-          </div>
-        )}
+            {saveSuccess && (
+              <div className="w-full p-4 mb-4 rounded-xl bg-green-500/15 border border-green-500/30 text-green-300 text-sm">
+                ✅ Ticket sauvegardé avec succès !
+              </div>
+            )}
 
-        {/* Bottom Navigation */}
-        <div
-          className="
-            absolute left-1/2 -translate-x-1/2 bottom-[-8px] 
-            w-[85%]
-            bg-[#0F2B52] rounded-full px-4 py-3
-            shadow-[8px_8px_22px_#07101F,-8px_-8px_22px_#173A68]
-            flex justify-between items-center
-            backdrop-blur-md
-          "
-        >
-          {navItems.map((item) => {
-            const active = pathname === item.route
-            const isScan = item.route === "/scan"
+            {receiptData && (
+              <div className="w-full mb-4 p-4 rounded-2xl bg-white/5 border border-white/10 shadow-md text-white">
+                <h3 className="font-bold mb-3 text-lg text-white">✅ Ticket analysé</h3>
+                
+                {receiptData.merchant && (
+                  <div className="mb-2">
+                    <span className="text-white/60">Commerçant:</span>
+                    <span className="ml-2 font-semibold">{receiptData.merchant}</span>
+                  </div>
+                )}
+                
+                {receiptData.date && (
+                  <div className="mb-2">
+                    <span className="text-white/60">Date:</span>
+                    <span className="ml-2 font-semibold">{receiptData.date}</span>
+                  </div>
+                )}
+                
+                {receiptData.total && (
+                  <div className="mb-3">
+                    <span className="text-white/60">Total:</span>
+                    <span className="ml-2 text-white text-xl font-semibold">{receiptData.total} €</span>
+                  </div>
+                )}
 
-            return (
+                {receiptData.items.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold mb-2 text-white">Articles:</h4>
+                    <div className="space-y-2">
+                      {receiptData.items.map((item, idx) => (
+                        <div key={idx} className="text-sm bg-[#0A1D37]/50 p-2 rounded-lg">
+                          <div className="flex justify-between">
+                            <span>{item.description}</span>
+                            {item.price && <span className="font-semibold">{item.price}</span>}
+                          </div>
+                          {item.quantity && (
+                            <span className="text-xs text-white/60">Quantité: {item.quantity}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!receiptData && (
               <button
-                key={item.route}
-                onClick={() => router.push(item.route)}
-                className={`
-                  flex flex-col items-center justify-center 
-                  transition-all duration-300
-                  ${isScan ? "w-14 h-14 -mt-6 rounded-full" : "w-12 h-12 rounded-2xl"}
-                  ${
-                    active
-                      ? "bg-[#0F2B52] shadow-[inset_6px_6px_12px_#07101F,inset_-6px_-6px_12px_#173A68] scale-110 animate-pulse"
-                      : "bg-[#0F2B52] shadow-[6px_6px_12px_#07101F,-6px_-6px_12px_#173A68] opacity-75 scale-95"
-                  }
-                `}
+                onClick={analyzeReceipt}
+                disabled={isAnalyzing}
+                className="w-full py-4 rounded-2xl font-semibold bg-white/10 border border-white/10 text-white shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className={isScan ? "text-2xl" : "text-xl"}>{item.icon}</span>
-                {!isScan && (
-                  <span className="text-[9px] mt-1 text-[#F5D657]">{item.name}</span>
+                {isAnalyzing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="animate-spin">⏳</span>
+                    Analyse en cours...
+                  </span>
+                ) : (
+                  "🔍 Analyser le ticket"
                 )}
               </button>
-            )
-          })}
-        </div>
+            )}
+
+            {receiptData && !saveSuccess && (
+              <div className="w-full flex gap-3 mt-4">
+                <button
+                  onClick={saveReceipt}
+                  disabled={isSaving}
+                  className="flex-1 py-3 rounded-2xl font-semibold bg-white text-[#0A1D37] shadow-md active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin">⏳</span>
+                      Sauvegarde...
+                    </span>
+                  ) : (
+                    "💾 Enregistrer"
+                  )}
+                </button>
+                <button
+                  onClick={resetScan}
+                  className="flex-1 py-3 rounded-2xl font-semibold bg-white/10 border border-white/10 text-white shadow-md active:scale-95 transition-all"
+                >
+                  🔄 Nouveau
+                </button>
+              </div>
+            )}
+
+            {!receiptData && (
+              <button
+                className="mt-4 text-sm text-white/60 underline"
+                onClick={resetScan}
+              >
+                Choisir une autre photo
+              </button>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

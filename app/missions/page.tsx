@@ -480,14 +480,25 @@ export default function MissionsPage() {
       <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-[40px] border border-white/10 bg-black/40 shadow-[0_0_60px_rgba(15,23,42,0.9)] overflow-hidden backdrop-blur-xl">
         {/* Header */}
         <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Missions
-            </p>
-            <h1 className="text-lg font-semibold text-slate-50">
-              Monde 3D interactif
-            </h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/")}
+              className="text-[#F5D657] text-xl active:scale-95 transition"
+              aria-label="Retour"
+            >
+              ←
+            </button>
+
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Missions
+              </p>
+              <h1 className="text-lg font-semibold text-slate-50">
+                Monde 3D interactif
+              </h1>
+            </div>
           </div>
+
           <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-1 text-[10px] text-slate-200">
             Bêta
           </div>

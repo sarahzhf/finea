@@ -189,11 +189,11 @@ export default function BudgetPage() {
     !selectedMonth
       ? []
       : transactions.filter(t => {
-          const d = parseFRDate(t.date)
-          if (!d) return false
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-          return key === selectedMonth
-        })
+        const d = parseFRDate(t.date)
+        if (!d) return false
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+        return key === selectedMonth
+      })
 
   const monthlySummary = filteredTransactions.reduce(
     (acc, t) => {
@@ -327,14 +327,24 @@ export default function BudgetPage() {
 
         {/* HEADER */}
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Mon budget</h1>
-            <p className="text-white/40 text-xs mt-1">
-              {selectedMonth ? formatMonthLabel(selectedMonth, showYearInMonthLabel) : ""}
-            </p>
-            <p className="text-white/50 text-sm">
-              Compte sélectionné : {bank === "CA" ? "Crédit Agricole" : "Société Générale"}
-            </p>
+          <div className="flex items-center">
+            <button
+              onClick={() => router.push('/')}
+              className="text-[#F5D657] text-xl active:scale-95 transition"
+              aria-label="Retour"
+              type="button"
+            >
+              ←
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Mon budget</h1>
+              <p className="text-white/40 text-xs mt-1">
+                {selectedMonth ? formatMonthLabel(selectedMonth, showYearInMonthLabel) : ""}
+              </p>
+              <p className="text-white/50 text-sm">
+                Compte sélectionné : {bank === "CA" ? "Crédit Agricole" : "Société Générale"}
+              </p>
+            </div>
           </div>
 
           <button
@@ -417,8 +427,7 @@ export default function BudgetPage() {
                 <button
                   onClick={() =>
                     openFineaWithPrompt(
-                      `Analyse ${selectedMonth ? formatMonthLabel(selectedMonth, showYearInMonthLabel) : "ce mois"} sur ${
-                        bank === "CA" ? "Crédit Agricole" : "Société Générale"
+                      `Analyse ${selectedMonth ? formatMonthLabel(selectedMonth, showYearInMonthLabel) : "ce mois"} sur ${bank === "CA" ? "Crédit Agricole" : "Société Générale"
                       } : pourquoi mes dépenses inutiles sont élevées ? Donne-moi 3 actions concrètes + un plan sur 7 jours.`
                     )
                   }
@@ -464,11 +473,10 @@ export default function BudgetPage() {
                         className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                            m.role === "user"
+                          className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${m.role === "user"
                               ? "bg-white/10 text-white"
                               : "bg-white/5 text-white/90"
-                          }`}
+                            }`}
                         >
                           {m.text}
                         </div>
@@ -692,19 +700,17 @@ export default function BudgetPage() {
                     return d ? d.toLocaleDateString("fr-FR") : "—"
                   })()}
                 </p>
-                <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full ${
-                  t.amount < 0
+                <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full ${t.amount < 0
                     ? "bg-red-500/20 text-red-300"
                     : "bg-green-500/20 text-green-300"
-                }`}>
+                  }`}>
                   {t.amount < 0 ? "Débit" : "Crédit"}
                 </span>
               </div>
 
               <p
-                className={`font-semibold ${
-                  t.amount < 0 ? "text-red-300" : "text-green-300"
-                }`}
+                className={`font-semibold ${t.amount < 0 ? "text-red-300" : "text-green-300"
+                  }`}
               >
                 {t.amount > 0 ? "+" : ""}
                 {Math.abs(t.amount).toLocaleString("fr-FR")} €

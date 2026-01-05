@@ -1,96 +1,98 @@
-import type { QuizQuestionRow } from "@/lib/quiz/types";
+import type { QuizQuestionDoc, SkillProfile } from "./types";
 
-// --- Adaptive selection / lightweight "ML" ---
-// We use a simple online logistic model (Elo-style update).
-// theta: learner ability (overall or per-theme)
-// b: item difficulty (mapped from difficulty_level 1..5)
-// P(correct) = sigmoid(theta - b)
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-export type ThemeTheta = Record<string, number>;
-
-export const DEFAULT_THETA = 0;
-
-function sigmoid(x: number): number {
-  // safe sigmoid
-  if (x > 20) return 1;
-  if (x < -20) return 0;
-  return 1 / (1 + Math.exp(-x));
+/**
+ * Convert question difficulty score to IRT-like difficulty in [-2..+2].
+ * If score is missing, assume medium (0).
+ */
+export function difficultyFromScore(score?: number | null) {
+  if (typeof score !== "number" || Number.isNaN(score)) return 0;
+  // score is often in [0..1]; map to [-2..+2]
+  return clamp((score - 0.5) * 4, -2, 2);
 }
 
-export function difficultyToB(difficultyLevel: number): number {
-  // Map 1..5 to roughly [-2, 2]
-  const lvl = Math.min(5, Math.max(1, difficultyLevel));
-  return (lvl - 3) * 1.0;
+/**
+ * Probability of correct answer with 1PL logistic model:
+ * p = sigmoid(theta - b)
+ */
+export function probCorrect(theta: number, b: number) {
+  const x = theta - b;
+  const p = 1 / (1 + Math.exp(-x));
+  return clamp(p, 1e-6, 1 - 1e-6);
 }
 
-export function predictCorrectProb(theta: number, difficultyLevel: number): number {
-  const b = difficultyToB(difficultyLevel);
-  return sigmoid(theta - b);
+/**
+ * Update skill for a set of tags using a light online gradient step.
+ * This is NOT a full IRT estimation; it's a simple and defensible "ML-like" adaptive model.
+ */
+export function updateSkills(
+  skills: SkillProfile,
+  tags: string[],
+  isCorrect: boolean,
+  difficultyB: number,
+  lr = 0.35
+): SkillProfile {
+  const next = { ...skills };
+  const y = isCorrect ? 1 : 0;
+
+  for (const tag of tags.length ? tags : ["general"]) {
+    const theta = typeof next[tag] === "number" ? next[tag] : 0;
+    const p = probCorrect(theta, difficultyB);
+    // gradient of log-loss for logistic model: theta += lr*(y - p)
+    const updated = clamp(theta + lr * (y - p), -3, 3);
+    next[tag] = updated;
+  }
+  return next;
 }
 
-export function updateThetaElo(opts: {
-  theta: number;
-  difficultyLevel: number;
-  correct: boolean;
-  k?: number;
-}): { theta: number; p: number; delta: number } {
-  const { theta, difficultyLevel, correct } = opts;
-  const k = typeof opts.k === "number" ? opts.k : 0.35;
-  const p = predictCorrectProb(theta, difficultyLevel);
-  const y = correct ? 1 : 0;
-  const delta = k * (y - p);
-  return { theta: theta + delta, p, delta };
-}
+/**
+ * Choose the next question among candidates.
+ * We want:
+ *  - difficulty near the user's theta (maximize information),
+ *  - respect tag filter,
+ *  - avoid repeats,
+ *  - slight exploration (epsilon-greedy).
+ */
+export function selectNextQuestion(
+  candidates: Array<{ docId: string; doc: QuizQuestionDoc }>,
+  skills: SkillProfile,
+  askedIds: Set<string>,
+  tagsFilter?: string[]
+) {
+  const epsilon = 0.15; // exploration rate
 
-export function pickWeakestTheme(themeTheta: ThemeTheta): string | null {
-  const entries = Object.entries(themeTheta);
-  if (entries.length === 0) return null;
-  entries.sort((a, b) => a[1] - b[1]);
-  return entries[0]![0];
-}
+  // filter active, not asked
+  const filtered = candidates.filter((c) => !askedIds.has(c.docId) && c.doc.active !== false);
+  if (filtered.length === 0) return null;
 
-export function selectNextQuestion(opts: {
-  candidates?: QuizQuestionRow[];
-  askedIds: Set<string>;
-  thetaOverall: number;
-  themeTheta: ThemeTheta;
-  epsilon?: number;
-}): QuizQuestionRow | null {
-  const {
-    candidates = [],
-    askedIds,
-    thetaOverall,
-    themeTheta,
-  } = opts;
-  const epsilon = typeof opts.epsilon === "number" ? opts.epsilon : 0.15;
-
-  const pool = Array.isArray(candidates)
-    ? candidates.filter((q) => !askedIds.has(q.id))
-    : [];
-
-  if (pool.length === 0) return null;
-
-  // Exploration: random pick with probability epsilon
+  // exploration
   if (Math.random() < epsilon) {
-    return pool[Math.floor(Math.random() * pool.length)]!;
+    return filtered[Math.floor(Math.random() * filtered.length)];
   }
 
-  const weakestTheme = pickWeakestTheme(themeTheta);
-  const targetTheta = weakestTheme ? themeTheta[weakestTheme] ?? thetaOverall : thetaOverall;
-
-  // Exploitation: pick the item whose difficulty is closest to targetTheta.
-  // Small theme bonus if it matches weakestTheme.
-  let best: QuizQuestionRow | null = null;
+  // score by "distance to target difficulty"
+  let best = filtered[0];
   let bestScore = -Infinity;
-  for (const q of pool) {
-    const b = difficultyToB(q.difficulty_level);
-    const closeness = -Math.abs(b - targetTheta);
-    const themeBonus = weakestTheme && q.theme === weakestTheme ? 0.25 : 0;
-    const score = closeness + themeBonus;
+
+  for (const c of filtered) {
+    const tags = (c.doc.tags?.length ? c.doc.tags : ["general"]).map((t) => String(t).toLowerCase());
+    const primaryTag =
+      (tagsFilter?.length ? tags.find((t) => tagsFilter.includes(t)) : tags[0]) ?? "general";
+    const theta = typeof skills[primaryTag] === "number" ? skills[primaryTag] : 0;
+    const b = difficultyFromScore(c.doc.difficultyScore ?? null);
+
+    const distance = Math.abs(theta - b); // smaller is better
+    const information = 1 - clamp(distance / 4, 0, 1); // [0..1]
+    // slight preference for questions with explicit explanation
+    const explainBonus = c.doc.explanation && c.doc.explanation.trim().length > 0 ? 0.05 : 0;
+
+    const score = information + explainBonus;
     if (score > bestScore) {
       bestScore = score;
-      best = q;
+      best = c;
     }
   }
+
   return best;
 }

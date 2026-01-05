@@ -31,3 +31,5 @@ node_modules
 .next
 .DS_Store
 
+# Firebase
+lib/firebase/serviceAccountKey.json

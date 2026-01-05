@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const TAG_OPTIONS = [
@@ -66,18 +66,13 @@ export default function QuizIndexPage() {
         <label className="block text-sm text-white/80 mb-2">Filtrer par thème (optionnel)</label>
         <div className="grid grid-cols-2 gap-3 mb-6">
           {TAG_OPTIONS.map((tag) => (
-            <label
-              key={tag.id}
-              className="flex items-center gap-2 text-sm text-white/80"
-            >
+            <label key={tag.id} className="flex items-center gap-2 text-sm text-white/80">
               <input
                 type="checkbox"
                 checked={selectedTags.includes(tag.id)}
                 onChange={() => {
                   setSelectedTags((prev) =>
-                    prev.includes(tag.id)
-                      ? prev.filter((t) => t !== tag.id)
-                      : [...prev, tag.id]
+                    prev.includes(tag.id) ? prev.filter((t) => t !== tag.id) : [...prev, tag.id]
                   );
                 }}
               />
@@ -94,11 +89,7 @@ export default function QuizIndexPage() {
           {loading ? "Démarrage..." : "Démarrer une session (10 questions)"}
         </button>
         <p className="text-xs text-white/50 mt-3">
-          Une session contient 10 questions sélectionnées parmi l’ensemble disponible.
-        </p>
-
-        <p className="text-xs text-white/50 mt-4">
-          Le mode adaptatif et le profil de compétences peuvent être ajoutés ensuite.
+          Mode adaptatif activé : la difficulté s’ajuste à ton niveau estimé par thème.
         </p>
       </div>
     </div>

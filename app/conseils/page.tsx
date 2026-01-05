@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-// navigation not used on this page
+import { useRouter } from "next/navigation"
 
 export default function ConseilsPage() {
   const [montantJour, setMontantJour] = useState("1")
@@ -16,7 +16,7 @@ export default function ConseilsPage() {
   const [economieJour, setEconomieJour] = useState("10")
   const [activeCalculator, setActiveCalculator] = useState<"jour" | "depenses" | "objectif">("jour")
   
-  
+  const router = useRouter()
 
   // Tips rotatifs (sans emojis)
   const tips = [
@@ -93,36 +93,43 @@ export default function ConseilsPage() {
   const resultatsObjectif = calculObjectif()
 
   return (
-    <div className="w-full min-h-screen bg-[#050A14] flex justify-center items-start py-8 px-3">
-      <div className="w-[390px] min-h-[780px] bg-[#0E1A2B] rounded-[40px] shadow-[0_0_40px_rgba(0,0,0,0.6)] p-6 relative overflow-hidden pb-10">
+    <div className="w-full min-h-screen bg-[#0A1D37] flex justify-center items-start py-8 px-3">
+      <div className="w-[390px] min-h-[780px] bg-[#050A14] rounded-[40px] shadow-[0_0_40px_rgba(0,0,0,0.4)] p-6 relative overflow-hidden pb-10">
 
-        {/* Title */}
-        <h1 className="relative z-10 text-2xl font-bold text-[#E6D27A] mb-6 drop-shadow">
-          Conseils
-        </h1>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="p-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition"
+            >
+              ←
+            </button>
+            <h1 className="text-2xl font-bold text-white">Conseils</h1>
+          </div>
+        </div>
 
         {/* Scrollable content */}
-        <div className="relative z-10 space-y-6 max-h-[650px] overflow-y-auto pb-4">
+        <div className="relative z-10 space-y-6 max-h-[690px] overflow-y-auto pb-4">
 
           {/* CONSEIL DU JOUR */}
-          <div className="bg-[#0E1A2B] rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-bold text-[#E6D27A]/85 mb-3">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-5">
+            <h2 className="text-lg font-semibold text-white mb-3">
               Conseil du jour
             </h2>
-            <p className="text-[#E6D27A]/90 text-sm leading-relaxed mb-4">
+            <p className="text-white/80 text-sm leading-relaxed mb-4">
               {tips[currentTipIndex]}
             </p>
             <button
               onClick={() => setCurrentTipIndex((currentTipIndex + 1) % tips.length)}
-              className="w-full py-2 rounded-xl bg-[#E6D27A] text-[#0F2B52] font-semibold text-sm active:scale-95 transition"
+              className="w-full py-2 rounded-xl bg-[#F5D657] text-[#0A1D37] font-semibold text-sm active:scale-95 transition"
             >
               Conseil suivant
             </button>
           </div>
 
           {/* CALCULATEURS */}
-          <div className="bg-[#0E1A2B] rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-bold text-[#E6D27A]/85 mb-4">Calculateurs</h2>
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-5">
+            <h2 className="text-lg font-semibold text-white mb-4">Calculateurs</h2>
             
             {/* Tabs */}
             <div className="flex gap-2 mb-4">
@@ -130,8 +137,8 @@ export default function ConseilsPage() {
                 onClick={() => setActiveCalculator("jour")}
                 className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition ${
                   activeCalculator === "jour"
-                    ? "bg-[#E6D27A] text-[#0F2B52]"
-                    : "bg-[#081425] text-[#E6D27A]/70"
+                    ? "bg-[#F5D657] text-[#0F2B52]"
+                    : "bg-white/5 border border-white/10 text-white/70"
                 }`}
               >
                 Économies
@@ -140,8 +147,8 @@ export default function ConseilsPage() {
                 onClick={() => setActiveCalculator("depenses")}
                 className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition ${
                   activeCalculator === "depenses"
-                    ? "bg-[#E6D27A] text-[#0F2B52]"
-                    : "bg-[#081425] text-[#E6D27A]/70"
+                    ? "bg-[#F5D657] text-[#0F2B52]"
+                    : "bg-white/5 border border-white/10 text-white/70"
                 }`}
               >
                 Dépenses
@@ -150,8 +157,8 @@ export default function ConseilsPage() {
                 onClick={() => setActiveCalculator("objectif")}
                 className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition ${
                   activeCalculator === "objectif"
-                    ? "bg-[#E6D27A] text-[#0F2B52]"
-                    : "bg-[#081425] text-[#E6D27A]/70"
+                    ? "bg-[#F5D657] text-[#0F2B52]"
+                    : "bg-white/5 border border-white/10 text-white/70"
                 }`}
               >
                 Objectif
@@ -162,52 +169,52 @@ export default function ConseilsPage() {
             {activeCalculator === "jour" && (
               <div className="space-y-3">
                 <div>
-                  <label className="text-[#E6D27A]/80 text-sm mb-2 block">Si j'économise par jour :</label>
+                  <label className="text-white/70 text-sm mb-2 block">Si j'économise par jour :</label>
                   <input
                     type="number"
                     value={montantJour}
                     onChange={(e) => setMontantJour(e.target.value)}
-                    className="w-full bg-[#081425] text-[#E6D27A] rounded-xl px-4 py-3 text-lg font-bold"
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-lg font-bold outline-none placeholder:text-white/30"
                     placeholder="1"
                   />
                 </div>
-                <div className="space-y-2 bg-[#081425]/50 rounded-xl p-4">
+                <div className="space-y-2 bg-white/5 border border-white/10 rounded-xl p-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#E6D27A]/70">Dans 1 semaine :</span>
-                    <span className="text-[#E6D27A] font-bold">{resultatsEcoJour.semaine}€</span>
+                    <span className="text-white/60">Dans 1 semaine :</span>
+                    <span className="text-white font-bold">{resultatsEcoJour.semaine}€</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#E6D27A]/70">Dans 1 mois :</span>
-                    <span className="text-[#E6D27A] font-bold">{resultatsEcoJour.mois}€</span>
+                    <span className="text-white/60">Dans 1 mois :</span>
+                    <span className="text-white font-bold">{resultatsEcoJour.mois}€</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#E6D27A]/70">Dans 1 an :</span>
-                    <span className="text-[#E6D27A] font-bold text-lg">{resultatsEcoJour.an}€</span>
+                    <span className="text-white/60">Dans 1 an :</span>
+                    <span className="text-white font-bold text-lg">{resultatsEcoJour.an}€</span>
                   </div>
-                  <div className="flex justify-between text-xs pt-2 border-t border-[#E6D27A]/20">
-                    <span className="text-[#E6D27A]/60">Avec Livret A (3%) :</span>
+                  <div className="flex justify-between text-xs pt-2 border-t border-white/10">
+                    <span className="text-white/50">Avec Livret A (3%) :</span>
                     <span className="text-green-400 font-semibold">{resultatsEcoJour.anAvecInterets}€</span>
                   </div>
                 </div>
 
                 <div className="pt-2">
-                  <label className="text-[#E6D27A]/80 text-sm mb-2 block">Ou par semaine :</label>
+                  <label className="text-white/70 text-sm mb-2 block">Ou par semaine :</label>
                   <input
                     type="number"
                     value={montantSemaine}
                     onChange={(e) => setMontantSemaine(e.target.value)}
-                    className="w-full bg-[#081425] text-[#E6D27A] rounded-xl px-4 py-3 text-lg font-bold"
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-lg font-bold outline-none placeholder:text-white/30"
                     placeholder="5"
                   />
                 </div>
-                <div className="space-y-2 bg-[#081425]/50 rounded-xl p-4">
+                <div className="space-y-2 bg-white/5 border border-white/10 rounded-xl p-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#E6D27A]/70">Dans 1 mois :</span>
-                    <span className="text-[#E6D27A] font-bold">{resultatsEcoSemaine.mois}€</span>
+                    <span className="text-white/60">Dans 1 mois :</span>
+                    <span className="text-white font-bold">{resultatsEcoSemaine.mois}€</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#E6D27A]/70">Dans 1 an :</span>
-                    <span className="text-[#E6D27A] font-bold text-lg">{resultatsEcoSemaine.an}€</span>
+                    <span className="text-white/60">Dans 1 an :</span>
+                    <span className="text-white font-bold text-lg">{resultatsEcoSemaine.an}€</span>
                   </div>
                 </div>
               </div>
@@ -217,36 +224,36 @@ export default function ConseilsPage() {
             {activeCalculator === "depenses" && (
               <div className="space-y-3">
                 <div>
-                  <label className="text-[#E6D27A]/80 text-sm mb-2 block">Nom de la dépense :</label>
+                  <label className="text-white/70 text-sm mb-2 block">Nom de la dépense :</label>
                   <input
                     type="text"
                     value={nomDepense}
                     onChange={(e) => setNomDepense(e.target.value)}
-                    className="w-full bg-[#081425] text-[#E6D27A] rounded-xl px-4 py-3 font-semibold"
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 font-semibold outline-none placeholder:text-white/30"
                     placeholder="Ex: Café, Netflix, Tabac..."
                   />
                 </div>
                 
                 <div>
-                  <label className="text-[#E6D27A]/80 text-sm mb-2 block">Montant (€) :</label>
+                  <label className="text-white/70 text-sm mb-2 block">Montant (€) :</label>
                   <input
                     type="number"
                     value={montantDepense}
                     onChange={(e) => setMontantDepense(e.target.value)}
-                    className="w-full bg-[#081425] text-[#E6D27A] rounded-xl px-4 py-3 text-lg font-bold"
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-lg font-bold outline-none placeholder:text-white/30"
                     placeholder="3.50"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[#E6D27A]/80 text-sm mb-2 block">Fréquence :</label>
+                  <label className="text-white/70 text-sm mb-2 block">Fréquence :</label>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => setFrequenceDepense("jour")}
                       className={`py-2 px-3 rounded-xl text-xs font-semibold transition ${
                         frequenceDepense === "jour"
-                          ? "bg-[#E6D27A] text-[#0F2B52]"
-                          : "bg-[#081425] text-[#E6D27A]/70"
+                          ? "bg-[#F5D657] text-[#0F2B52]"
+                          : "bg-white/5 border border-white/10 text-white/70"
                       }`}
                     >
                       Jour
@@ -255,8 +262,8 @@ export default function ConseilsPage() {
                       onClick={() => setFrequenceDepense("semaine")}
                       className={`py-2 px-3 rounded-xl text-xs font-semibold transition ${
                         frequenceDepense === "semaine"
-                          ? "bg-[#E6D27A] text-[#0F2B52]"
-                          : "bg-[#081425] text-[#E6D27A]/70"
+                          ? "bg-[#F5D657] text-[#0F2B52]"
+                          : "bg-white/5 border border-white/10 text-white/70"
                       }`}
                     >
                       Semaine
@@ -265,8 +272,8 @@ export default function ConseilsPage() {
                       onClick={() => setFrequenceDepense("mois")}
                       className={`py-2 px-3 rounded-xl text-xs font-semibold transition ${
                         frequenceDepense === "mois"
-                          ? "bg-[#E6D27A] text-[#0F2B52]"
-                          : "bg-[#081425] text-[#E6D27A]/70"
+                          ? "bg-[#F5D657] text-[#0F2B52]"
+                          : "bg-white/5 border border-white/10 text-white/70"
                       }`}
                     >
                       Mois
@@ -274,17 +281,17 @@ export default function ConseilsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2 bg-[#081425]/50 rounded-xl p-4">
-                  <p className="text-[#E6D27A] font-semibold text-sm mb-2">Coût de : {nomDepense}</p>
+                <div className="space-y-2 bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-white font-semibold text-sm mb-2">Coût de : {nomDepense}</p>
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#E6D27A]/70">Par mois :</span>
+                    <span className="text-white/60">Par mois :</span>
                     <span className="text-orange-400 font-bold">{resultatsDepense.mois}€</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#E6D27A]/70">Par an :</span>
+                    <span className="text-white/60">Par an :</span>
                     <span className="text-red-400 font-bold text-lg">{resultatsDepense.an}€</span>
                   </div>
-                  <p className="text-xs text-[#E6D27A]/60 pt-2 border-t border-[#E6D27A]/20">
+                  <p className="text-xs text-white/50 pt-2 border-t border-white/10">
                     En supprimant cette dépense, vous économisez {resultatsDepense.an}€/an !
                   </p>
                 </div>
@@ -295,37 +302,37 @@ export default function ConseilsPage() {
             {activeCalculator === "objectif" && (
               <div className="space-y-3">
                 <div>
-                  <label className="text-[#E6D27A]/80 text-sm mb-2 block">Mon objectif (€) :</label>
+                  <label className="text-white/70 text-sm mb-2 block">Mon objectif (€) :</label>
                   <input
                     type="number"
                     value={objectifMontant}
                     onChange={(e) => setObjectifMontant(e.target.value)}
-                    className="w-full bg-[#081425] text-[#E6D27A] rounded-xl px-4 py-3 text-lg font-bold"
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-lg font-bold outline-none placeholder:text-white/30"
                     placeholder="1000"
                   />
                 </div>
                 <div>
-                  <label className="text-[#E6D27A]/80 text-sm mb-2 block">J'économise par jour (€) :</label>
+                  <label className="text-white/70 text-sm mb-2 block">J'économise par jour (€) :</label>
                   <input
                     type="number"
                     value={economieJour}
                     onChange={(e) => setEconomieJour(e.target.value)}
-                    className="w-full bg-[#081425] text-[#E6D27A] rounded-xl px-4 py-3 text-lg font-bold"
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-lg font-bold outline-none placeholder:text-white/30"
                     placeholder="10"
                   />
                 </div>
-                <div className="space-y-2 bg-[#081425]/50 rounded-xl p-4">
-                  <div className="text-center pb-3 border-b border-[#E6D27A]/20">
-                    <p className="text-[#E6D27A]/70 text-xs mb-1">Vous atteindrez votre objectif dans :</p>
-                    <p className="text-[#E6D27A] font-bold text-2xl">{resultatsObjectif.jours} jours</p>
+                <div className="space-y-2 bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="text-center pb-3 border-b border-white/10">
+                    <p className="text-white/60 text-xs mb-1">Vous atteindrez votre objectif dans :</p>
+                    <p className="text-white font-bold text-2xl">{resultatsObjectif.jours} jours</p>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#E6D27A]/70">Soit environ :</span>
-                    <span className="text-[#E6D27A] font-semibold">{resultatsObjectif.semaines} semaines</span>
+                    <span className="text-white/60">Soit environ :</span>
+                    <span className="text-white font-semibold">{resultatsObjectif.semaines} semaines</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#E6D27A]/70">Ou :</span>
-                    <span className="text-[#E6D27A] font-semibold">{resultatsObjectif.mois} mois</span>
+                    <span className="text-white/60">Ou :</span>
+                    <span className="text-white font-semibold">{resultatsObjectif.mois} mois</span>
                   </div>
                 </div>
               </div>
@@ -333,36 +340,36 @@ export default function ConseilsPage() {
           </div>
 
           {/* TECHNIQUES DE MANIPULATION */}
-          <div className="bg-[#0E1A2B] rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-bold text-[#E6D27A]/85 mb-3">Reconnaître les pièges</h2>
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-5">
+            <h2 className="text-lg font-semibold text-white mb-3">Reconnaître les pièges</h2>
             <div className="space-y-3">
-              <div className="bg-[#081425]/50 rounded-xl p-3">
-                <h3 className="text-[#E6D27A]/85 font-semibold text-sm mb-1">L'urgence artificielle</h3>
-                <p className="text-[#E6D27A]/70 text-xs">"Plus que 2 en stock !" - Souvent faux, ignorez-le.</p>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                <h3 className="text-white font-semibold text-sm mb-1">L'urgence artificielle</h3>
+                <p className="text-white/60 text-xs">"Plus que 2 en stock !" - Souvent faux, ignorez-le.</p>
               </div>
-              <div className="bg-[#081425]/50 rounded-xl p-3">
-                <h3 className="text-[#E6D27A]/85 font-semibold text-sm mb-1">La pression sociale</h3>
-                <p className="text-[#E6D27A]/70 text-xs">"127 personnes regardent" - Chiffres manipulés.</p>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                <h3 className="text-white font-semibold text-sm mb-1">La pression sociale</h3>
+                <p className="text-white/60 text-xs">"127 personnes regardent" - Chiffres manipulés.</p>
               </div>
-              <div className="bg-[#081425]/50 rounded-xl p-3">
-                <h3 className="text-[#E6D27A]/85 font-semibold text-sm mb-1">Notifications addictives</h3>
-                <p className="text-[#E6D27A]/70 text-xs">Désactivez toutes les notifs shopping !</p>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                <h3 className="text-white font-semibold text-sm mb-1">Notifications addictives</h3>
+                <p className="text-white/60 text-xs">Désactivez toutes les notifs shopping !</p>
               </div>
-              <div className="bg-[#081425]/50 rounded-xl p-3">
-                <h3 className="text-[#E6D27A]/85 font-semibold text-sm mb-1">Fausses promos</h3>
-                <p className="text-[#E6D27A]/70 text-xs">"-70% première commande" = vous dépensez quand même.</p>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                <h3 className="text-white font-semibold text-sm mb-1">Fausses promos</h3>
+                <p className="text-white/60 text-xs">"-70% première commande" = vous dépensez quand même.</p>
               </div>
             </div>
           </div>
 
           {/* VOS OPTIMISATIONS (placeholder) */}
-          <div className="bg-[#0E1A2B] rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-bold text-[#E6D27A]/85 mb-3">Vos optimisations</h2>
-            <div className="bg-[#081425]/50 rounded-xl p-4 text-center">
-              <p className="text-[#E6D27A]/70 text-sm">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-5">
+            <h2 className="text-lg font-semibold text-white mb-3">Vos optimisations</h2>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+              <p className="text-white/70 text-sm">
                 Fonctionnalité à venir
               </p>
-              <p className="text-[#E6D27A]/50 text-xs mt-2">
+              <p className="text-white/50 text-xs mt-2">
                 Analyse automatique de vos dépenses et suggestions d'économies personnalisées.
               </p>
             </div>

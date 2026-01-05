@@ -1,184 +1,152 @@
-export const runtime = "nodejs";
-import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase/server";
-import type { AnswerChoice } from "@/lib/quiz/types";
-import { toPublicQuestion } from "@/lib/quiz/selectQuestions";
-import { pickWeakestTheme, selectNextQuestion, updateThetaElo } from "@/lib/quiz/adaptive";
+import { NextResponse } from "next/server";
+import { getFirestore, nowTimestamp, serverTimestamp } from "@/lib/firebase/admin";
+import type { AnswerChoice, QuizQuestionDoc, QuizSessionDoc } from "@/lib/quiz/types";
+import { choiceToIndex, toPublicQuestion } from "@/lib/quiz/transform";
+import { difficultyFromScore, updateSkills, selectNextQuestion } from "@/lib/quiz/adaptive";
 
-export async function POST(req: NextRequest, ctx: { params: { sessionId: string } }) {
-  const supabase = getSupabaseServer();
-  const sessionId = ctx.params.sessionId;
-
-  let body: any = {};
+export async function POST(req: Request, { params }: { params: { sessionId: string } }) {
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-  
-  const selected = String(body?.selected ?? "").trim().toUpperCase();
-  if (!selected || !["A","B","C","D"].includes(selected)) {
-    return NextResponse.json({ error: "Invalid answer" }, { status: 400 });
-  }
+    const body = await req.json().catch(() => ({}));
+    const selected = body?.selected as AnswerChoice | undefined;
+    const questionId = body?.questionId as string | undefined;
 
-  const { data: session, error: sErr } = await supabase
-    .from("quiz_sessions")
-    .select("*")
-    .eq("id", sessionId)
-    .single();
-
-  if (sErr || !session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
-  if (session.finished) return NextResponse.json({ error: "Session already finished" }, { status: 400 });
-
-  const position = session.current_index;
-
-  const { data: sq, error: sqErr } = await supabase
-    .from("quiz_session_questions")
-    .select("question_id")
-    .eq("session_id", sessionId)
-    .eq("position", position)
-    .single();
-
-  if (sqErr || !sq) return NextResponse.json({ error: "Session question not found" }, { status: 500 });
-
-  const { data: q, error: qErr } = await supabase
-    .from("quiz_questions")
-    .select("*")
-    .eq("id", sq.question_id)
-    .single();
-
-  if (qErr || !q) return NextResponse.json({ error: "Question not found" }, { status: 500 });
-
-  const isCorrect =
-    String(selected).toUpperCase() ===
-    String(q.correct_answer ?? "").trim().toUpperCase();
-
-  // --- Adaptive update (lightweight online "ML") ---
-  const theme = String((q as any).theme ?? "general");
-  const prevThetaOverall = Number((session as any).theta_overall ?? 0);
-  const prevThemeTheta = ((session as any).theme_theta ?? {}) as Record<string, number>;
-
-  const { theta: newThetaOverall } = updateThetaElo({
-    theta: prevThetaOverall,
-    difficultyLevel: Number((q as any).difficulty_level ?? 3),
-    correct: isCorrect,
-  });
-
-  const { theta: newThetaTheme } = updateThetaElo({
-    theta: Number(prevThemeTheta[theme] ?? 0),
-    difficultyLevel: Number((q as any).difficulty_level ?? 3),
-    correct: isCorrect,
-  });
-
-  const newThemeTheta = { ...prevThemeTheta, [theme]: newThetaTheme };
-
-  // record answer
-  const { error: aErr } = await supabase.from("quiz_answers").insert({
-    session_id: sessionId,
-    question_id: q.id,
-    position,
-    selected_answer: selected,
-    is_correct: isCorrect,
-  });
-  if (aErr) return NextResponse.json({ error: aErr.message }, { status: 500 });
-
-  const nextIndex = position + 1;
-  const nextScore = session.score + (isCorrect ? 1 : 0);
-  const finished = nextIndex >= session.total_questions;
-
-  const { error: uErr } = await supabase
-    .from("quiz_sessions")
-    .update({
-      current_index: finished ? position : nextIndex,
-      score: nextScore,
-      finished,
-      finished_at: finished ? new Date().toISOString() : null,
-      theta_overall: newThetaOverall,
-      theme_theta: newThemeTheta,
-    })
-    .eq("id", sessionId);
-
-  if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 });
-
-  const progress = {
-    sessionId,
-    currentIndex: finished ? position : nextIndex,
-    totalQuestions: session.total_questions,
-    score: nextScore,
-    finished,
-  };
-
-  if (finished) {
-    return NextResponse.json({ progress, results: { score: nextScore, total: session.total_questions } });
-  }
-
-  // Fetch or create next question (adaptive selector)
-  const { data: sq2, error: sq2Err } = await supabase
-    .from("quiz_session_questions")
-    .select("question_id")
-    .eq("session_id", sessionId)
-    .eq("position", nextIndex)
-    .maybeSingle();
-
-  let q2: any = null;
-
-  if (!sq2Err && sq2?.question_id) {
-    const { data: fetched, error: q2Err } = await supabase
-      .from("quiz_questions")
-      .select("*")
-      .eq("id", sq2.question_id)
-      .single();
-    if (q2Err || !fetched) return NextResponse.json({ error: "Next question not found" }, { status: 500 });
-    q2 = fetched;
-  } else {
-    // Build asked set
-    const { data: askedRows, error: askedErr } = await supabase
-      .from("quiz_session_questions")
-      .select("question_id")
-      .eq("session_id", sessionId);
-
-    if (askedErr) return NextResponse.json({ error: askedErr.message }, { status: 500 });
-    const askedIds = new Set((askedRows ?? []).map((r) => r.question_id));
-
-    // Candidate pool (case‑insensitive theme)
-    let poolQ = supabase.from("quiz_questions").select("*").eq("active", true);
-    if (session.theme_filter) poolQ = poolQ.ilike("theme", session.theme_filter);
-
-    const { data: pool, error: poolErr } = await poolQ.limit(500);
-    if (poolErr) return NextResponse.json({ error: poolErr.message }, { status: 500 });
-
-    const preferredTheme = pickWeakestTheme(newThemeTheta) ?? session.theme_filter ?? null;
-
-    const next = selectNextQuestion({
-      candidates: pool ?? [],
-      askedIds,
-      thetaOverall: newThetaOverall,
-      themeTheta: newThemeTheta,
-      preferredTheme,
-      epsilon: 0.2,
-    });
-
-    if (!next) {
-      // No more questions available; end early.
-      return NextResponse.json({ progress: { ...progress, finished: true }, results: { score: nextScore, total: session.total_questions } });
+    if (!selected || !["A", "B", "C", "D"].includes(selected)) {
+      return NextResponse.json({ error: "Réponse invalide" }, { status: 400 });
+    }
+    if (!questionId || typeof questionId !== "string") {
+      return NextResponse.json({ error: "questionId manquant" }, { status: 400 });
     }
 
-    const { error: insErr } = await supabase.from("quiz_session_questions").insert({
-      session_id: sessionId,
-      question_id: next.id,
-      position: nextIndex,
-    });
-    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
-    q2 = next;
-  }
+    const db = getFirestore();
+    const sessionRef = db.collection("quiz_sessions").doc(params.sessionId);
+    const sessionSnap = await sessionRef.get();
 
-  try {
-    return NextResponse.json({ progress, nextQuestion: toPublicQuestion(q2) });
+    if (!sessionSnap.exists) {
+      return NextResponse.json({ error: "Session introuvable" }, { status: 404 });
+    }
+
+    const session = sessionSnap.data() as QuizSessionDoc;
+
+    // ✅ normalisation défensive
+    const tagsFilter = Array.isArray(session.tagsFilter) ? session.tagsFilter : [];
+
+    if (session.finished) {
+      return NextResponse.json({ error: "Session terminée" }, { status: 400 });
+    }
+
+    const qSnap = await db.collection("questions").doc(questionId).get();
+    if (!qSnap.exists) return NextResponse.json({ error: "Question introuvable" }, { status: 404 });
+    const q = qSnap.data() as QuizQuestionDoc;
+
+    const selectedIndex = choiceToIndex(selected);
+    const correctIndex = Number(q.correctIndex);
+    const isCorrect = selectedIndex === correctIndex;
+
+    const tags = (q.tags?.length ? q.tags : ["general"]).map((t) => String(t).toLowerCase());
+    const b = difficultyFromScore(q.difficultyScore ?? null);
+    const nextSkills = updateSkills(session.skills ?? {}, tags, isCorrect, b);
+
+    const nextScore = (session.score ?? 0) + (isCorrect ? 1 : 0);
+    const nextIndex = (session.currentIndex ?? 0) + 1;
+    const totalQuestions = session.totalQuestions ?? 0;
+
+    const answeredEntry = {
+      questionId,
+      selectedIndex,
+      correctIndex,
+      isCorrect,
+      tags,
+      difficulty: b,
+      // ✅ IMPORTANT : Timestamp immédiat, autorisé dans un objet stocké dans un array
+      answeredAt: nowTimestamp(),
+    };
+
+    const finished = nextIndex >= totalQuestions;
+
+    // update session
+    await sessionRef.update({
+      currentIndex: nextIndex,
+      score: nextScore,
+      skills: nextSkills,
+      answered: [...(session.answered ?? []), answeredEntry],
+      finished,
+      updatedAt: serverTimestamp(), // OK top-level
+    });
+
+    // If finished, return results
+    if (finished) {
+      return NextResponse.json({
+        results: { score: nextScore, total: totalQuestions, skills: nextSkills },
+        feedback: {
+          isCorrect,
+          correctIndex,
+          storedExplanation: q.explanation ?? "",
+        },
+        progress: {
+          currentIndex: nextIndex,
+          totalQuestions,
+          score: nextScore,
+          skills: nextSkills,
+          finished: true,
+          tagsFilter,
+        },
+      });
+    }
+
+    // Otherwise pick next question now
+    let query = db.collection("questions").where("active", "==", true).limit(300);
+
+    if (tagsFilter.length > 0) {
+      query = db
+        .collection("questions")
+        .where("active", "==", true)
+        .where("tags", "array-contains-any", tagsFilter.slice(0, 10))
+        .limit(300);
+    }
+
+    const qs = await query.get();
+    const candidates: Array<{ docId: string; doc: QuizQuestionDoc }> = [];
+    qs.forEach((d) => candidates.push({ docId: d.id, doc: d.data() as QuizQuestionDoc }));
+
+    const askedIds = new Set([...(session.askedQuestionIds ?? []), questionId]);
+    const chosen = selectNextQuestion(candidates, nextSkills, askedIds, tagsFilter);
+
+    if (!chosen) {
+      await sessionRef.update({ finished: true, updatedAt: serverTimestamp() });
+      return NextResponse.json({
+        results: { score: nextScore, total: totalQuestions, skills: nextSkills },
+        feedback: { isCorrect, correctIndex, storedExplanation: q.explanation ?? "" },
+        progress: {
+          currentIndex: nextIndex,
+          totalQuestions,
+          score: nextScore,
+          skills: nextSkills,
+          finished: true,
+          tagsFilter,
+        },
+      });
+    }
+
+    // mark as asked
+    await sessionRef.update({
+      askedQuestionIds: [...(session.askedQuestionIds ?? []), chosen.docId],
+      updatedAt: serverTimestamp(),
+    });
+
+    return NextResponse.json({
+      nextQuestion: toPublicQuestion(chosen.docId, chosen.doc),
+      feedback: { isCorrect, correctIndex, storedExplanation: q.explanation ?? "" },
+      progress: {
+        currentIndex: nextIndex,
+        totalQuestions,
+        score: nextScore,
+        skills: nextSkills,
+        finished: false,
+        tagsFilter,
+      },
+    });
   } catch (e: any) {
-    console.error("FINAL SERIALIZATION ERROR", e);
-    return NextResponse.json(
-      { error: "Failed to serialize next question" },
-      { status: 500 }
-    );
+    console.error(e);
+    return NextResponse.json({ error: e?.message ?? "Erreur serveur" }, { status: 500 });
   }
 }
